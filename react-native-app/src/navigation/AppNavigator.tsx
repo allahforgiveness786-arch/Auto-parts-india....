@@ -25,7 +25,7 @@ function TabNavigator({ user }: { user: any }) {
   const tabHeight = 56 + bottomPadding;
 
   return (
-    <Tab.Navigator
+    <Tab.Navigator id="MainTab"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: '#1565FF',
@@ -115,7 +115,7 @@ function TabNavigator({ user }: { user: any }) {
 
 export default function AppNavigator({ user }: { user: any }) {
   return (
-    <Stack.Navigator
+    <Stack.Navigator id="MainStack"
       initialRouteName="Splash"
       screenOptions={{
         headerStyle: { backgroundColor: '#0B1220' },

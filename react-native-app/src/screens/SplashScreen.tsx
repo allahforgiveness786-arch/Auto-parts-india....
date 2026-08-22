@@ -1,6 +1,6 @@
 
-import auth from '@react-native-firebase/auth';
-import { Animated, View, StatusBar, StyleSheet, ActivityIndicator } from 'react-native';
+import { getAuth } from "@react-native-firebase/auth";
+import { Animated, View, StatusBar, StyleSheet, ActivityIndicator, Text } from 'react-native';
 
 import React, { useEffect, useRef } from 'react';
 import BrandLogo from '../components/BrandLogo';
@@ -17,7 +17,7 @@ export default function SplashScreen({ navigation }: any) {
 
     const timer = setTimeout(() => {
       try {
-        const targetScreen = auth().currentUser ? 'MainTabs' : 'Auth';
+        const targetScreen = getAuth().currentUser ? 'MainTabs' : 'Auth';
         if (navigation?.reset) {
           navigation.reset({
             index: 0,

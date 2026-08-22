@@ -1,3 +1,5 @@
+import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
+import { View, Text, StyleSheet, StatusBar } from "react-native";
 import React, { useState, useEffect, useRef } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PaperProvider } from 'react-native-paper';
@@ -47,8 +49,8 @@ export default function App() {
     let unsubscribeAuth = () => {};
 
     try {
-      if (auth) {
-        unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
+      if (getAuth) {
+        unsubscribeAuth = onAuthStateChanged(getAuth(), async (user) => {
           try {
             if (cleanupFcm) {
               cleanupFcm();

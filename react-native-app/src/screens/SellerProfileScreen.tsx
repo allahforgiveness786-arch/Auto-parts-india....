@@ -1,6 +1,6 @@
 
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import { getAuth } from "@react-native-firebase/auth";
+import { getFirestore, collection, query, where, getDocs, getDoc, doc, setDoc, deleteDoc } from "@react-native-firebase/firestore";
 import { Alert } from 'react-native';
 import { Text, Surface, Button, Icon, ActivityIndicator as PaperActivityIndicator } from 'react-native-paper';
 
@@ -23,7 +23,7 @@ export default function SellerProfileScreen({ route, navigation }: any) {
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
 
-  const currentUser = auth().currentUser;
+  const currentUser = getAuth().currentUser;
   const isOwnProfile = currentUser?.uid === sellerId;
 
   useEffect(() => {
@@ -34,23 +34,26 @@ export default function SellerProfileScreen({ route, navigation }: any) {
       setLoading(true);
       try {
         // 1. Fetch seller listings
-        const q = firestore().collection('products').doc('listings').collection('items').where('sellerId', '==', sellerId);
+        const q = query(collection(getFirestore(), 'spareParts'), where('sellerId', '==', sellerId));
+        const listingsSnap = await getDocs(q);
         const items: any[] = [];
-        snap.forEach(d => {
+        listingsSnap.forEach(d => {
           items.push({ id: d.id, ...d.data() });
         });
 
         // 2. Fetch followers & following counts
-        const followersQ = firestore().collection('follows').where('followingId', '==', sellerId);
-        const followingQ = firestore().collection('follows').where('followerId', '==', sellerId);
+        const followersQ = query(collection(getFirestore(), 'follows'), where('followingId', '==', sellerId));
+        const followingQ = query(collection(getFirestore(), 'follows'), where('followerId', '==', sellerId));
         const [followersSnap, followingSnap] = await Promise.all([
+          getDocs(followersQ),
+          getDocs(followingQ)
         ]);
 
         // 3. Check follow status if logged in
         let followingStatus = false;
         if (currentUser?.uid && currentUser.uid !== sellerId) {
-          const followDoc = await firestore().collection('follows'.get().doc(`${currentUser.uid}_${sellerId}`));
-          followingStatus = followDoc.exists;
+          const followDoc = await getDoc(doc(getFirestore(), 'follows', `${currentUser.uid}_${sellerId}`));
+          followingStatus = followDoc.exists();
         }
 
         if (isMounted) {
@@ -84,11 +87,11 @@ export default function SellerProfileScreen({ route, navigation }: any) {
     const followId = `${currentUser.uid}_${sellerId}`;
     try {
       if (isFollowing) {
-        await firestore().collection('follows'.delete().doc(followId));
+        await deleteDoc(doc(getFirestore(), 'follows', followId));
         setIsFollowing(false);
         setFollowersCount(prev => Math.max(0, prev - 1));
       } else {
-        await firestore().collection('follows').doc(followId).set({
+        await setDoc(doc(getFirestore(), 'follows', followId), {
           id: followId,
           followerId: currentUser.uid,
           followingId: sellerId,

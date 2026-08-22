@@ -1,3 +1,5 @@
+import { getFirestore, doc, onSnapshot, setDoc, deleteDoc, collection } from "@react-native-firebase/firestore";
+import { View, ScrollView, StyleSheet, Alert, Linking, Image, Share, TouchableOpacity } from "react-native";
 import React, { useState, useEffect } from 'react';
 import { Text, Button, Card, Avatar, Divider, Chip, IconButton, useTheme } from 'react-native-paper';
 import GMap from '../components/GMap';
@@ -15,7 +17,7 @@ export default function ProductDetailScreen({ route, navigation, user }: any) {
       
       let unsub = () => {};
       try {
-        unsub = firestore().collection('spareParts').doc(initialPart.id).onSnapshot((docSnap) => {
+        unsub = onSnapshot(doc(getFirestore(), 'spareParts', initialPart.id), (docSnap) => {
           if (docSnap.exists) {
             setPart({ id: docSnap.id, ...docSnap.data() });
           }
@@ -65,7 +67,7 @@ export default function ProductDetailScreen({ route, navigation, user }: any) {
     const chatId = `${part.id}_${currentUid}_${sellerUid}`;
     
     try {
-      const chatDocRef = firestore().collection('chats').doc(chatId);
+      const chatDocRef = doc(getFirestore(), 'chats', chatId);
       await setDoc(chatDocRef, {
         id: chatId,
         partId: part.id,
@@ -111,7 +113,7 @@ export default function ProductDetailScreen({ route, navigation, user }: any) {
             try {
               setIsDeleting(true);
               if (part.id) {
-                await firestore().collection('spareParts'.delete().doc(part.id));
+                await deleteDoc(doc(getFirestore(), 'spareParts', part.id));
               }
               Alert.alert('Listing Deleted', 'Your spare part listing has been permanently deleted.');
               navigation.goBack();
@@ -197,7 +199,7 @@ export default function ProductDetailScreen({ route, navigation, user }: any) {
           <Card.Title
             title={part.contactName || part.sellerEmail || 'Verified Parts Dealer'}
             subtitle={`📍 ${part.location || 'India'} • Verified Vendor`}
-            left={(props) => <Avatar.Icon {...props} icon="account" backgroundColor="#1565FF" />}
+            left={(props) => <Avatar.Icon {...props} icon="account" style={{ backgroundColor: "#1565FF" }} />}
             right={(props) => (
               <IconButton 
                 {...props} 

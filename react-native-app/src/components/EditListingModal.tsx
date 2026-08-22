@@ -1,3 +1,5 @@
+import { getFirestore, doc, updateDoc } from "@react-native-firebase/firestore";
+import { View, Modal, StyleSheet, TextInput, Button, Text, Alert, ScrollView, TouchableOpacity, Image, KeyboardAvoidingView, Platform, ActivityIndicator } from "react-native";
 import React, { useState, useEffect } from 'react';
 import { Icon } from 'react-native-paper';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -75,7 +77,7 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
         finalImageUrl = await uploadImageToCloudinary(imageUrl, 'spare_parts');
       }
 
-      const listingRef = firestore().collection('spareParts').doc(listing.id);
+      const listingRef = doc(getFirestore(), 'spareParts', listing.id);
       await updateDoc(listingRef, {
         title: title.trim(),
         price: Number(price) || 0,

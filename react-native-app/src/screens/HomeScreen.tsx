@@ -1,3 +1,5 @@
+import { getFirestore, collection, orderBy, query, onSnapshot } from "@react-native-firebase/firestore";
+import { View, FlatList, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, Image, Dimensions, SafeAreaView, StatusBar, Modal } from "react-native";
 import React, { useState, useEffect } from 'react';
 import { 
   Searchbar, 
@@ -76,9 +78,9 @@ export default function HomeScreen({ navigation, user }: any) {
     setLoading(true);
     let unsubscribe = () => {};
     try {
-      const q = firestore().collection('spareParts').orderBy('createdAt', 'desc');
+      const q = query(collection(getFirestore(), 'spareParts'), orderBy('createdAt', 'desc'));
 
-      unsubscribe = q.onSnapshot((snapshot) => {
+      unsubscribe = onSnapshot(q, (snapshot) => {
         const list: any[] = [];
         snapshot.forEach((doc) => {
           list.push({ id: doc.id, ...doc.data() });

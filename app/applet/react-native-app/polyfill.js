@@ -9,10 +9,10 @@ if (typeof global !== "undefined") {
 
 if (typeof globalThis !== 'undefined') {
   if (!globalThis.crypto) {
-    (globalThis as any).crypto = {};
+    globalThis.crypto = {};
   }
-  if (typeof (globalThis as any).crypto.getRandomValues !== 'function') {
-    (globalThis as any).crypto.getRandomValues = function (array: any) {
+  if (typeof globalThis.crypto.getRandomValues !== 'function') {
+    globalThis.crypto.getRandomValues = function (array) {
       for (let i = 0; i < array.length; i++) {
         array[i] = Math.floor(Math.random() * 256);
       }

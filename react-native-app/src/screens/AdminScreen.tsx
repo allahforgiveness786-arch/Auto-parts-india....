@@ -1,3 +1,4 @@
+import { getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from "@react-native-firebase/firestore";
 import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Image, FlatList } from 'react-native';
 import React, { useState, useEffect } from 'react';
 import { Text, SegmentedButtons, Icon } from 'react-native-paper';
@@ -23,8 +24,8 @@ export default function AdminScreen({ navigation }: any) {
 
     try {
       // Listen to spareParts
-      const qListings = firestore().collection('spareParts').orderBy('createdAt', 'desc');
-      unsubListings = qListings.onSnapshot((snap) => {
+      const qListings = query(collection(getFirestore(), 'spareParts'), orderBy('createdAt', 'desc'));
+      unsubListings = onSnapshot(qListings, (snap) => {
         const list: any[] = [];
         snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
         setListings(list);
@@ -35,8 +36,8 @@ export default function AdminScreen({ navigation }: any) {
       });
 
       // Listen to banners
-      const qBanners = firestore().collection('banners');
-      unsubBanners = qBanners.onSnapshot((snap) => {
+      const qBanners = collection(getFirestore(), 'banners');
+      unsubBanners = onSnapshot(qBanners, (snap) => {
         const list: any[] = [];
         snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
         setBanners(list);
@@ -45,8 +46,8 @@ export default function AdminScreen({ navigation }: any) {
       });
 
       // Listen to users
-      const qUsers = firestore().collection('users');
-      unsubUsers = qUsers.onSnapshot((snap) => {
+      const qUsers = collection(getFirestore(), 'users');
+      unsubUsers = onSnapshot(qUsers, (snap) => {
         const list: any[] = [];
         snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
         setUsers(list);
@@ -67,7 +68,7 @@ export default function AdminScreen({ navigation }: any) {
 
   const handleToggleApprove = async (item: any) => {
     try {
-      const itemRef = firestore().collection('spareParts').doc(item.id);
+      const itemRef = doc(getFirestore(), 'spareParts', item.id);
       const newStatus = item.approved === false ? true : false;
       await updateDoc(itemRef, {
         approved: newStatus,
@@ -91,7 +92,7 @@ export default function AdminScreen({ navigation }: any) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await firestore().collection('spareParts'.delete().doc(id));
+              await deleteDoc(doc(getFirestore(), 'spareParts', id));
               Alert.alert('Deleted', 'Listing removed from marketplace.');
             } catch (err: any) {
               Alert.alert('Error', err.message || 'Failed to delete listing.');
@@ -104,7 +105,7 @@ export default function AdminScreen({ navigation }: any) {
 
   const handleToggleBanner = async (banner: any) => {
     try {
-      const bannerRef = firestore().collection('banners').doc(banner.id);
+      const bannerRef = doc(getFirestore(), 'banners', banner.id);
       const newActive = banner.active === false ? true : false;
       await updateDoc(bannerRef, {
         active: newActive,

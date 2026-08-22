@@ -1,6 +1,6 @@
 
-import auth from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
+import { getAuth, signOut, updateProfile } from "@react-native-firebase/auth";
+import { getFirestore, doc, onSnapshot, setDoc } from "@react-native-firebase/firestore";
 
 import { View, ScrollView, StyleSheet, Alert, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import React, { useState, useEffect } from 'react';
@@ -26,7 +26,7 @@ export default function ProfileScreen({ navigation, user: initialUser }: any) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [cacheBuster, setCacheBuster] = useState(Date.now());
 
-  const currentAuthUser = auth().currentUser || initialUser;
+  const currentAuthUser = getAuth().currentUser || initialUser;
 
   // 1. Real-time Profile Sync via Firestore onSnapshot
   useEffect(() => {
@@ -35,7 +35,7 @@ export default function ProfileScreen({ navigation, user: initialUser }: any) {
       return;
     }
 
-    const userDocRef = firestore().collection('users').doc(currentAuthUser.uid);
+    const userDocRef = doc(getFirestore(), 'users', currentAuthUser.uid);
     const unsubscribe = onSnapshot(
       userDocRef,
       (docSnap) => {
@@ -96,14 +96,14 @@ export default function ProfileScreen({ navigation, user: initialUser }: any) {
       const uploadedUrl = await uploadImageToCloudinary(selectedUri, 'avatars');
 
       // Update Firebase Auth Profile
-      if (auth().currentUser) {
-        await auth().currentUser?.updateProfile(auth().currentUser, {
+      if (getAuth().currentUser) {
+        await updateProfile(getAuth().currentUser!, {
           photoURL: uploadedUrl,
         });
       }
 
       // Update Firestore user document
-      const userDocRef = firestore().collection('users').doc(currentAuthUser.uid);
+      const userDocRef = doc(getFirestore(), 'users', currentAuthUser.uid);
       await setDoc(
         userDocRef,
         {
@@ -125,7 +125,7 @@ export default function ProfileScreen({ navigation, user: initialUser }: any) {
 
   const handleSignOut = async () => {
     try {
-      await auth().signOut(auth);
+      await signOut(getAuth());
       navigation.navigate('Home');
     } catch (err: any) {
       console.warn('Sign out error:', err);
