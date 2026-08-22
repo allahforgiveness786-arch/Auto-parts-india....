@@ -30,6 +30,7 @@
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "react-native-screens": "^4.27.0",
+    "react-native-svg": "^15.15.5",
     "vite": "^6.2.3"
   },
   "devDependencies": {

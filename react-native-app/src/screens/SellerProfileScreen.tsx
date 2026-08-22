@@ -53,7 +53,7 @@ export default function SellerProfileScreen({ route, navigation }: any) {
         let followingStatus = false;
         if (currentUser?.uid && currentUser.uid !== sellerId) {
           const followDoc = await getDoc(doc(getFirestore(), 'follows', `${currentUser.uid}_${sellerId}`));
-          followingStatus = followDoc.exists();
+          followingStatus = typeof (followDoc as any).exists === 'function' ? (followDoc as any).exists() : Boolean(followDoc.exists);
         }
 
         if (isMounted) {

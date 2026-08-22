@@ -277,10 +277,12 @@ jobs:
           REACT_NATIVE_MAX_WORKERS: 1
           CMAKE_BUILD_PARALLEL_LEVEL: 1
           NINJA_STATUS: "[%f/%c] "
+          ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/26.1.10909125
         run: |
           cd react-native-app/android
           chmod +x ./gradlew || true
-          ./gradlew assembleDebug --console=plain --no-daemon --max-workers=1 --stacktrace
+          ./gradlew assembleDebug --console=plain --stacktrace \
+          -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC"
 
       - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
