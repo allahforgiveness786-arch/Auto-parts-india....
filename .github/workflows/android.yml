@@ -19,6 +19,18 @@ jobs:
     timeout-minutes: 45
 
     steps:
+      - name: Free up disk space on GitHub Runner
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf /usr/local/lib/android/ndk/25.*
+          sudo rm -rf /usr/local/lib/android/ndk/24.*
+          sudo rm -rf /usr/local/lib/android/ndk/23.*
+          sudo rm -rf /usr/local/lib/android/ndk/22.*
+          sudo rm -rf /usr/local/lib/android/ndk/21.*
+          df -h
+
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
@@ -218,7 +230,7 @@ jobs:
         run: |
           sudo swapoff -a || true
           sudo rm -f /mnt/swapfile
-          sudo fallocate -l 4G /mnt/swapfile || sudo dd if=/dev/zero of=/mnt/swapfile bs=1M count=4096
+          sudo fallocate -l 2G /mnt/swapfile || sudo dd if=/dev/zero of=/mnt/swapfile bs=1M count=2048
           sudo chmod 600 /mnt/swapfile
           sudo mkswap /mnt/swapfile
           sudo swapon /mnt/swapfile
