@@ -39,17 +39,18 @@ export default function ProfileScreen({ navigation, user: initialUser }: any) {
     const unsubscribe = onSnapshot(
       userDocRef,
       (docSnap) => {
-        if (docSnap.exists) {
+        const isExisting = typeof (docSnap as any).exists === 'function' ? (docSnap as any).exists() : Boolean(docSnap.exists);
+        if (isExisting) {
           const data = docSnap.data();
           setProfileData({
             id: docSnap.id,
-            email: data.email || currentAuthUser.email || '',
-            name: data.name || data.displayName || currentAuthUser.displayName || '',
-            displayName: data.displayName || data.name || currentAuthUser.displayName || '',
-            photoURL: data.photoURL || currentAuthUser.photoURL || '',
-            phone: data.phone || '',
-            role: data.role || 'buyer',
-            createdAt: data.createdAt,
+            email: data?.email || currentAuthUser.email || '',
+            name: data?.name || data?.displayName || currentAuthUser.displayName || '',
+            displayName: data?.displayName || data?.name || currentAuthUser.displayName || '',
+            photoURL: data?.photoURL || currentAuthUser.photoURL || '',
+            phone: data?.phone || '',
+            role: data?.role || 'buyer',
+            createdAt: data?.createdAt,
           });
           setCacheBuster(Date.now());
         } else {

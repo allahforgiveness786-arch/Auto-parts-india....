@@ -1,9 +1,11 @@
-import { MD3LightTheme as DefaultTheme } from 'react-native-paper';
+import { MD3LightTheme, configureFonts } from 'react-native-paper';
 
 export const theme = {
-  ...DefaultTheme,
+  ...MD3LightTheme,
+  isV3: true,
+  version: 3,
   colors: {
-    ...DefaultTheme.colors,
+    ...(MD3LightTheme?.colors || {}),
     primary: '#1565FF',
     secondary: '#0B1220',
     tertiary: '#00D1FF',
@@ -14,3 +16,4 @@ export const theme = {
     error: '#EF4444',
   },
 };
+

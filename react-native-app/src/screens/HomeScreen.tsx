@@ -238,14 +238,14 @@ export default function HomeScreen({ navigation, user }: any) {
               key={b.name}
               style={[
                 styles.brandChip,
-                selectedBrand === b.name && styles.selectedBrandChip
+                selectedBrand === b.name ? styles.selectedBrandChip : undefined
               ]}
               onPress={() => setSelectedBrand(b.name)}
             >
               <Text 
                 style={[
                   styles.brandText,
-                  selectedBrand === b.name && styles.selectedBrandText
+                  selectedBrand === b.name ? styles.selectedBrandText : undefined
                 ]}
               >
                 {b.name}
@@ -368,7 +368,7 @@ export default function HomeScreen({ navigation, user }: any) {
                   setShowLocationModal(false);
                 }}
               >
-                <Text style={[styles.locationTextModal, selectedCity === city && { color: '#1565FF', fontWeight: 'bold' }]}>
+                <Text style={[styles.locationTextModal, selectedCity === city ? { color: '#1565FF', fontWeight: 'bold' } : undefined]}>
                   {city}
                 </Text>
                 {selectedCity === city && <Text style={{ color: '#1565FF' }}>✓</Text>}

@@ -266,7 +266,7 @@ export default function SellPartScreen({ navigation, user }: any) {
                   setShowCategoryModal(false);
                 }}
               >
-                <Text style={[styles.catText, category === cat && { color: '#1565FF', fontWeight: 'bold' }]}>
+                <Text style={[styles.catText, category === cat ? { color: '#1565FF', fontWeight: 'bold' } : undefined]}>
                   {cat}
                 </Text>
               </TouchableOpacity>

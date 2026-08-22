@@ -18,7 +18,8 @@ export default function ProductDetailScreen({ route, navigation, user }: any) {
       let unsub = () => {};
       try {
         unsub = onSnapshot(doc(getFirestore(), 'spareParts', initialPart.id), (docSnap) => {
-          if (docSnap.exists) {
+          const isExisting = typeof (docSnap as any).exists === 'function' ? (docSnap as any).exists() : Boolean(docSnap.exists);
+          if (isExisting) {
             setPart({ id: docSnap.id, ...docSnap.data() });
           }
         }, (err) => {
