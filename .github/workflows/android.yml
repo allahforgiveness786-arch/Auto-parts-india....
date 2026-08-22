@@ -263,7 +263,8 @@ jobs:
         run: |
           cd react-native-app/android
           chmod +x ./gradlew || true
-          ./gradlew assembleRelease --console=plain --no-daemon --max-workers=1 --stacktrace
+          ./gradlew assembleRelease --console=plain --stacktrace \
+          -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC"
 
       - name: Build React Native Android Debug APK (Strict Clean Build)
         env:
