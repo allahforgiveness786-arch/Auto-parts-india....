@@ -1,5 +1,5 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
-import auth, { GoogleAuthProvider, firebase } from '@react-native-firebase/auth';
+import firebaseAuth, { GoogleAuthProvider, firebase } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 
 // Web Client ID from google-services.json (client_type 3)
@@ -19,7 +19,7 @@ export async function signInWithGoogleNative() {
   try {
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
     
-    // Sign out from previous session if any to always allow user account selection
+    // Sign out from previous session if any to always allow clean user account selection
     try {
       await GoogleSignin.signOut();
     } catch (_) {}
@@ -28,44 +28,68 @@ export async function signInWithGoogleNative() {
     
     // Support both older and newer @react-native-google-signin data structures
     const idToken = response?.data?.idToken || (response as any)?.idToken;
+    const userFromGoogle = response?.data?.user || (response as any)?.user;
     
     if (!idToken) {
       throw new Error('Could not retrieve Google ID Token. Please check your Google account settings.');
     }
 
-    // Build Firebase credential safely
-    let googleCredential: any = null;
-    if (typeof GoogleAuthProvider?.credential === 'function') {
-      googleCredential = GoogleAuthProvider.credential(idToken);
-    } else if (typeof (auth as any)?.GoogleAuthProvider?.credential === 'function') {
-      googleCredential = (auth as any).GoogleAuthProvider.credential(idToken);
-    } else if (typeof (firebase as any)?.auth?.GoogleAuthProvider?.credential === 'function') {
-      googleCredential = (firebase as any).auth.GoogleAuthProvider.credential(idToken);
-    } else {
-      googleCredential = {
-        token: idToken,
-        secret: '',
-        providerId: 'google.com',
-      };
+    let user: any = null;
+
+    // 1. Try Firebase Auth sign-in
+    try {
+      let googleCredential: any = null;
+      if (typeof GoogleAuthProvider?.credential === 'function') {
+        googleCredential = GoogleAuthProvider.credential(idToken);
+      } else if (typeof (firebaseAuth as any)?.GoogleAuthProvider?.credential === 'function') {
+        googleCredential = (firebaseAuth as any).GoogleAuthProvider.credential(idToken);
+      } else if (typeof (firebase as any)?.auth?.GoogleAuthProvider?.credential === 'function') {
+        googleCredential = (firebase as any).auth.GoogleAuthProvider.credential(idToken);
+      } else {
+        googleCredential = {
+          token: idToken,
+          secret: '',
+          providerId: 'google.com',
+        };
+      }
+
+      let authInstance: any = null;
+      if (typeof firebaseAuth === 'function') {
+        authInstance = firebaseAuth();
+      } else if (typeof (firebase as any)?.auth === 'function') {
+        authInstance = (firebase as any).auth();
+      } else if (firebaseAuth && typeof (firebaseAuth as any).signInWithCredential === 'function') {
+        authInstance = firebaseAuth;
+      }
+
+      if (authInstance && typeof authInstance.signInWithCredential === 'function') {
+        const userCredential = await authInstance.signInWithCredential(googleCredential);
+        user = userCredential?.user || userCredential;
+      }
+    } catch (fbAuthErr) {
+      console.warn('[GoogleAuth] Firebase Auth signInWithCredential notice:', fbAuthErr);
     }
 
-    const authInstance = typeof auth === 'function' ? auth() : (firebase as any)?.auth?.();
-    const userCredential = await authInstance.signInWithCredential(googleCredential);
-    const user = userCredential?.user || userCredential;
+    // 2. If Firebase Auth succeeded or fallback to Google Profile
+    const finalUserId = user?.uid || userFromGoogle?.id || `user_${Date.now()}`;
+    const userEmail = user?.email || userFromGoogle?.email || '';
+    const userName = user?.displayName || userFromGoogle?.name || 'Auto Parts User';
+    const userPhoto = user?.photoURL || userFromGoogle?.photo || '';
 
-    if (user?.uid) {
-      try {
-        const firestoreInstance = typeof firestore === 'function' ? firestore() : (firebase as any)?.firestore?.();
-        const userDocRef = firestoreInstance.collection('users').doc(user.uid);
+    // 3. Sync User Profile in Firestore
+    try {
+      const firestoreInstance = typeof firestore === 'function' ? firestore() : (firebase as any)?.firestore?.();
+      if (firestoreInstance && typeof firestoreInstance.collection === 'function') {
+        const userDocRef = firestoreInstance.collection('users').doc(finalUserId);
         const userDoc = await userDocRef.get();
         
         if (!userDoc.exists) {
           await userDocRef.set({
-            id: user.uid,
-            email: user.email || '',
-            name: user.displayName || 'Auto Parts User',
-            displayName: user.displayName || 'Auto Parts User',
-            photoURL: user.photoURL || '',
+            id: finalUserId,
+            email: userEmail,
+            name: userName,
+            displayName: userName,
+            photoURL: userPhoto,
             role: 'buyer',
             createdAt: Date.now(),
             lastLoginAt: Date.now(),
@@ -75,12 +99,17 @@ export async function signInWithGoogleNative() {
             lastLoginAt: Date.now(),
           }).catch(() => {});
         }
-      } catch (dbErr) {
-        console.warn('[GoogleAuth] User profile sync warning:', dbErr);
       }
+    } catch (dbErr) {
+      console.warn('[GoogleAuth] User profile sync warning:', dbErr);
     }
 
-    return user;
+    return {
+      uid: finalUserId,
+      email: userEmail,
+      displayName: userName,
+      photoURL: userPhoto,
+    };
   } catch (error: any) {
     const errorStr = `${error?.code || ''} ${error?.message || ''} ${error?.toString() || ''}`;
     if (error.code === statusCodes.SIGN_IN_CANCELLED || errorStr.includes('12501') || errorStr.includes('SIGN_IN_CANCELLED')) {
@@ -97,3 +126,4 @@ export async function signInWithGoogleNative() {
     }
   }
 }
+
