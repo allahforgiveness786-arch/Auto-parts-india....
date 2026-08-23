@@ -112,18 +112,35 @@ export default function AuthScreen({ navigation }: any) {
             </View>
           </View>
 
+          {/* Secure Note */}
+          <View style={styles.secureNoteRow}>
+            <Icon source="shield-check" size={16} color="#10B981" />
+            <Text style={styles.secureNoteText}>
+              Official OAuth 2.0 Security via Google Play Services
+            </Text>
+          </View>
+
           {/* Divider */}
           <View style={styles.dividerBox}>
             <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR</Text>
+            <Text style={styles.dividerText}>OR EXPLORE</Text>
             <View style={styles.dividerLine} />
           </View>
 
-          {/* Secure Note */}
-          <View style={styles.secureNoteRow}>
-            <Icon source="shield-check-outline" size={16} color="#10B981" />
-            <Text style={styles.secureNoteText}>100% Secure authentication via Google Play Services</Text>
-          </View>
+          {/* Explore as Guest Button */}
+          <TouchableOpacity
+            style={styles.guestBtn}
+            onPress={() => {
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'MainTabs' }],
+              });
+            }}
+            activeOpacity={0.8}
+          >
+            <Icon source="compass-outline" size={18} color="#94A3B8" />
+            <Text style={styles.guestBtnText}>Browse Marketplace as Guest</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Footer Legal Terms */}
@@ -305,6 +322,23 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     fontSize: 12,
     fontWeight: '500',
+  },
+  secureNoteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.2)',
+  },
+  secureNoteText: {
+    color: '#6EE7B7',
+    fontSize: 11,
+    fontWeight: '600',
   },
   dividerBox: {
     flexDirection: 'row',

@@ -12,6 +12,7 @@ export default function SellerProfileScreen({ route, navigation }: any) {
   const sellerLocation = seller?.location || seller?.district || 'India';
 
   const [activeListings, setActiveListings] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
@@ -42,9 +43,11 @@ export default function SellerProfileScreen({ route, navigation }: any) {
         // 2. Fetch followers & following counts
         const followersQ = db.collection('follows').where('followingId', '==', sellerId);
         const followingQ = db.collection('follows').where('followerId', '==', sellerId);
-        const [followersSnap, followingSnap] = await Promise.all([
+        const reviewsQ = db.collection('sellerReviews').where('sellerId', '==', sellerId);
+        const [followersSnap, followingSnap, reviewsSnap] = await Promise.all([
           followersQ.get(),
-          followingQ.get()
+          followingQ.get(),
+          reviewsQ.get()
         ]);
 
         // 3. Check follow status if logged in
@@ -56,6 +59,11 @@ export default function SellerProfileScreen({ route, navigation }: any) {
 
         if (isMounted) {
           setActiveListings(items.filter((it: any) => !it.sold));
+          const revs: any[] = [];
+          if (reviewsSnap) {
+            reviewsSnap.forEach((d: any) => revs.push({id: d.id, ...d.data()}));
+          }
+          setReviews(revs);
           setFollowersCount(followersSnap.size);
           setFollowingCount(followingSnap.size);
           setIsFollowing(followingStatus);
@@ -428,5 +436,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1565FF',
     marginTop: 4,
+  },
+  reviewCard: {
+    backgroundColor: '#F8FAFC',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
 });

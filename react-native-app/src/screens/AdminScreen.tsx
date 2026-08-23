@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Image, FlatList } from 'react-native';
 import { Text, SegmentedButtons, Icon } from 'react-native-paper';
 import EditListingModal from '../components/EditListingModal';
+import { AdminTaxonomyCMS } from '../components/AdminTaxonomyCMS';
 import { getFirebaseFirestore } from '../services/firebase';
 
 export default function AdminScreen({ navigation }: any) {
@@ -229,6 +230,7 @@ export default function AdminScreen({ navigation }: any) {
           { value: 'listings', label: `Listings (${listings.length})` },
           { value: 'banners', label: `Banners (${banners.length})` },
           { value: 'users', label: `Users (${users.length})` },
+          { value: 'taxonomy', label: `Taxonomy CMS` },
         ]}
         style={styles.segmented}
       />
@@ -237,6 +239,8 @@ export default function AdminScreen({ navigation }: any) {
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#1565FF" />
         </View>
+      ) : tab === 'taxonomy' ? (
+        <AdminTaxonomyCMS />
       ) : tab === 'listings' ? (
         <FlatList
           data={listings}

@@ -28,11 +28,15 @@ import { getFirebaseAuth, getFirebaseFirestore, getCurrentUser } from '../servic
 import { UserProfile } from '../types';
 import { EditListingModal } from '../components/EditListingModal';
 import { INITIAL_SPARE_PARTS } from '../data/mockData';
+import { useLanguage } from '../context/LanguageContext';
+import { LanguageSelectorModal } from '../components/LanguageSelectorModal';
 
 const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250';
 
 export default function ProfileScreen({ navigation, route, user: initialUser, initialTab = 'overview' }: any) {
   const theme = useTheme();
+  const { t, language } = useLanguage();
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'my_listings' | 'saved'>(
     route?.params?.initialTab || initialTab || 'overview'
   );
@@ -400,6 +404,14 @@ export default function ProfileScreen({ navigation, route, user: initialUser, in
               <Divider style={{ marginVertical: 8 }} />
               <List.Subheader style={styles.sectionHeader}>Tools & Moderation</List.Subheader>
               <List.Item
+                title="Change Language"
+                description={`Current: ${language === 'en' ? 'English' : language === 'ta' ? 'Tamil' : 'Hindi'}`}
+                left={(props) => <List.Icon {...props} icon="translate" color="#0EA5E9" />}
+                right={(props) => <List.Icon {...props} icon="chevron-right" />}
+                onPress={() => setShowLanguageModal(true)}
+                style={styles.listItem}
+              />
+              <List.Item
                 title="Admin Moderation"
                 description="Manage listings, taxonomy categories & banners"
                 left={(props) => <List.Icon {...props} icon="shield-account" color="#F59E0B" />}
@@ -608,6 +620,12 @@ export default function ProfileScreen({ navigation, route, user: initialUser, in
           }}
         />
       )}
+
+      {/* Trilingual Language Selector Modal */}
+      <LanguageSelectorModal
+        visible={showLanguageModal}
+        onDismiss={() => setShowLanguageModal(false)}
+      />
     </View>
   );
 }

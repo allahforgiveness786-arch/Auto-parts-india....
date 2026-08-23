@@ -4,15 +4,21 @@ import { Text, Button, Card, Avatar, Divider, Chip, IconButton, useTheme } from 
 import GMap from '../components/GMap';
 import { EditListingModal } from '../components/EditListingModal';
 import RatingModal from '../components/RatingModal';
+import { ImageGalleryModal } from '../components/ImageGalleryModal';
 import { getFirebaseFirestore, getCurrentUser } from '../services/firebase';
+import { useFavorites } from '../services/favorites';
 
 export default function ProductDetailScreen({ route, navigation, user: initialUser }: any) {
   const { part: initialPart } = route.params || {};
   const [part, setPart] = useState<any>(initialPart);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [ratingModalVisible, setRatingModalVisible] = useState(false);
+  const [galleryVisible, setGalleryVisible] = useState(false);
+  const [galleryIndex, setGalleryIndex] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
   const user = initialUser || getCurrentUser();
+  const { favorites, toggleFavorite } = useFavorites();
+  const isFav = favorites.includes(part?.id);
 
   useEffect(() => {
     if (initialPart?.id) {
@@ -145,10 +151,25 @@ export default function ProductDetailScreen({ route, navigation, user: initialUs
   return (
     <ScrollView style={styles.container}>
       <View style={styles.imageHeader}>
-        <Image 
-          source={{ uri: part.imageUrl || 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?auto=format&fit=crop&q=80&w=800' }} 
-          style={styles.image} 
-        />
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => {
+            setGalleryIndex(0);
+            setGalleryVisible(true);
+          }}
+        >
+          <Image 
+            source={{ uri: part.imageUrl || 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?auto=format&fit=crop&q=80&w=800' }} 
+            style={styles.image} 
+          />
+          <View style={styles.galleryBadge}>
+            <IconButton icon="arrow-expand-all" iconColor="#FFFFFF" size={14} style={{ margin: 0 }} />
+            <Text style={styles.galleryBadgeText}>View Gallery</Text>
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.favFab} onPress={() => toggleFavorite(part.id)}>
+          <IconButton icon={isFav ? "heart" : "heart-outline"} iconColor={isFav ? "#EF4444" : "#0B1220"} size={20} />
+        </TouchableOpacity>
         <TouchableOpacity style={styles.shareFab} onPress={handleShare}>
           <IconButton icon="share-variant" iconColor="#0B1220" size={20} />
         </TouchableOpacity>
@@ -326,6 +347,13 @@ export default function ProductDetailScreen({ route, navigation, user: initialUs
           }}
         />
       )}
+      {/* Image Gallery Modal */}
+      <ImageGalleryModal
+        visible={galleryVisible}
+        part={part}
+        initialIndex={galleryIndex}
+        onDismiss={() => setGalleryVisible(false)}
+      />
     </ScrollView>
   );
 }
@@ -342,10 +370,34 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 280,
   },
+  galleryBadge: {
+    position: 'absolute',
+    bottom: 12,
+    left: 12,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: 10,
+    paddingVertical: 2,
+  },
+  galleryBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
   shareFab: {
     position: 'absolute',
     top: 16,
     right: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    elevation: 4,
+  },
+  favFab: {
+    position: 'absolute',
+    top: 16,
+    right: 70,
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     elevation: 4,

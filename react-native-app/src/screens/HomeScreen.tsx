@@ -15,12 +15,23 @@ import {
   Surface
 } from 'react-native-paper';
 import { getFirebaseFirestore } from '../services/firebase';
+import { useFavorites } from '../services/favorites';
 import { getCurrentLocation, reverseGeocodeOSM } from '../services/location';
 import BrandLogo from '../components/BrandLogo';
 import { INITIAL_SPARE_PARTS } from '../data/mockData';
+import { useLanguage } from '../context/LanguageContext';
+import { LanguageSelectorModal } from '../components/LanguageSelectorModal';
+import { UpdateDialogModal } from '../components/UpdateDialogModal';
+import { InAppNotification, InAppNotificationData } from '../components/InAppNotification';
 
 export default function HomeScreen({ navigation, user }: any) {
+  const { favorites, toggleFavorite } = useFavorites();
+  const [firestoreBanners, setFirestoreBanners] = useState<any[]>([]);
+  const [taxonomyCategories, setTaxonomyCategories] = useState<string[]>([]);
+  const [taxonomyBrands, setTaxonomyBrands] = useState<string[]>([]);
   const theme = useTheme();
+  const { t, translateDynamic, language } = useLanguage();
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedBrand, setSelectedBrand] = useState('All');
@@ -30,8 +41,14 @@ export default function HomeScreen({ navigation, user }: any) {
   const [refreshing, setRefreshing] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
+  const [inAppNotification, setInAppNotification] = useState<InAppNotificationData | null>(null);
+  const [showUpdateDialog, setShowUpdateDialog] = useState(false);
+  const [updateConfig, setUpdateConfig] = useState<any>(null);
 
-  const categoryData = [
+  const displayCategories = taxonomyCategories.length > 0 
+    ? ['All', ...taxonomyCategories].map(cat => ({ id: cat, name: cat, icon: 'tag-outline', count: parts.filter(p => p.category === cat).length, color: '#1565FF', bg: '#EFF6FF' })) 
+    : [
+
     { id: 'All', name: 'All Parts', icon: 'view-grid-outline', count: parts.length, color: '#1565FF', bg: '#EFF6FF' },
     { id: 'Engine & Mechanical', name: 'Engine & Mechanical', icon: 'engine-outline', count: parts.filter(p => p.category === 'Engine & Mechanical').length, color: '#D97706', bg: '#FEF3C7' },
     { id: 'Body & Exterior', name: 'Body & Exterior', icon: 'car-door', count: parts.filter(p => p.category === 'Body & Exterior').length, color: '#4F46E5', bg: '#EEF2FF' },
@@ -41,7 +58,10 @@ export default function HomeScreen({ navigation, user }: any) {
     { id: 'Wiring & Harnesses', name: 'Wiring & Harnesses', icon: 'lightning-bolt-outline', count: parts.filter(p => p.category === 'Wiring & Harnesses').length, color: '#0891B2', bg: '#CFFAFE' },
   ];
 
-  const topBrands = [
+  const displayBrands = taxonomyBrands.length > 0
+    ? ['All', ...taxonomyBrands].map(b => ({ name: b, icon: 'car-side' }))
+    : [
+
     { name: 'All', icon: 'car-multiple' },
     { name: 'Maruti Suzuki', icon: 'car-sports' },
     { name: 'Hyundai', icon: 'car' },
@@ -121,8 +141,46 @@ export default function HomeScreen({ navigation, user }: any) {
       setRefreshing(false);
     }
 
+    // Check version config
+    try {
+      const db = getFirebaseFirestore();
+      db.collection('app_config').doc('version').get().then((doc: any) => {
+        if (doc.exists) {
+          const data = doc.data();
+          if (data && data.latestVersion && data.latestVersion > '2.4.0') {
+            setUpdateConfig(data);
+            setShowUpdateDialog(true);
+          }
+        } else {
+          // Simulation for preview environments
+          setTimeout(() => {
+            setUpdateConfig({
+              latestVersion: '2.5.0',
+              minimumSupportedVersion: '2.0.0',
+              forceUpdate: false,
+              releaseNotes: '• Trilingual support added\n• Taxonomy CMS\n• Performance fixes',
+              releaseDate: 'Oct 15, 2026',
+            });
+            setShowUpdateDialog(true);
+          }, 4000);
+        }
+      });
+    } catch (e) {}
+
+    // Simulate an incoming notification for demo purposes
+    const timer = setTimeout(() => {
+      setInAppNotification({
+        id: 'mock-1',
+        senderName: 'Ravi Kumar',
+        text: 'Is the swift bumper still available? I can pick it up today.',
+        partTitle: 'Swift Dzire Front Bumper',
+        partPrice: 2500,
+      });
+    }, 8000);
+
     return () => {
       try { unsubscribe(); } catch (_) {}
+      clearTimeout(timer);
     };
   }, []);
 
@@ -238,15 +296,21 @@ export default function HomeScreen({ navigation, user }: any) {
         <View style={styles.headerRight}>
           <TouchableOpacity 
             style={styles.bellBtn} 
+            onPress={() => setShowLanguageModal(true)}
+          >
+            <IconButton icon="translate" iconColor="#F1F5F9" size={20} style={{ margin: 0 }} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.bellBtn} 
             onPress={() => navigation.navigate('Search')}
           >
-            <IconButton icon="magnify" iconColor="#FFFFFF" size={22} style={{ margin: 0 }} />
+            <IconButton icon="magnify" iconColor="#FFFFFF" size={20} style={{ margin: 0 }} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.bellBtn} 
             onPress={() => navigation.navigate('Notifications')}
           >
-            <IconButton icon="bell-outline" iconColor="#FFFFFF" size={22} style={{ margin: 0 }} />
+            <IconButton icon="bell-outline" iconColor="#FFFFFF" size={20} style={{ margin: 0 }} />
             <Badge size={8} style={styles.badge} />
           </TouchableOpacity>
         </View>
@@ -299,7 +363,7 @@ export default function HomeScreen({ navigation, user }: any) {
           <Text variant="titleMedium" style={styles.sectionTitle}>Popular Car Brands</Text>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.brandList}>
-          {topBrands.map((b) => (
+          {displayBrands.map((b) => (
             <TouchableOpacity 
               key={b.name}
               style={[
@@ -330,7 +394,7 @@ export default function HomeScreen({ navigation, user }: any) {
           )}
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryCardList}>
-          {categoryData.map((cat) => {
+          {displayCategories.map((cat) => {
             const isSelected = selectedCategory === cat.id;
             return (
               <TouchableOpacity
@@ -501,7 +565,7 @@ export default function HomeScreen({ navigation, user }: any) {
 
             <Text variant="titleSmall" style={{ fontWeight: 'bold', marginBottom: 8 }}>Car Brand</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-              {topBrands.map((b) => (
+              {displayBrands.map((b) => (
                 <Chip
                   key={b.name}
                   selected={selectedBrand === b.name}
@@ -515,14 +579,14 @@ export default function HomeScreen({ navigation, user }: any) {
 
             <Text variant="titleSmall" style={{ fontWeight: 'bold', marginBottom: 8 }}>Category</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-              {categories.map((c) => (
+              {displayCategories.map((c) => (
                 <Chip
-                  key={c}
-                  selected={selectedCategory === c}
-                  onPress={() => setSelectedCategory(c)}
+                  key={c.id}
+                  selected={selectedCategory === c.id}
+                  onPress={() => setSelectedCategory(c.id)}
                   style={{ marginRight: 6 }}
                 >
-                  {c}
+                  {c.name}
                 </Chip>
               ))}
             </ScrollView>
@@ -533,6 +597,31 @@ export default function HomeScreen({ navigation, user }: any) {
           </View>
         </View>
       </Modal>
+
+      {/* Trilingual Language Selector Modal */}
+      <LanguageSelectorModal
+        visible={showLanguageModal}
+        onDismiss={() => setShowLanguageModal(false)}
+      />
+
+      {/* In-App Notification Overlay */}
+      <InAppNotification
+        notification={inAppNotification}
+        onClose={() => setInAppNotification(null)}
+        onPress={(notif) => {
+          navigation.navigate('Chats');
+        }}
+      />
+
+      {/* Version Update Check Modal */}
+      {updateConfig && (
+        <UpdateDialogModal
+          visible={showUpdateDialog}
+          versionConfig={updateConfig}
+          isForceUpdate={updateConfig.forceUpdate}
+          onDismiss={() => setShowUpdateDialog(false)}
+        />
+      )}
     </SafeAreaView>
   );
 }

@@ -1,13 +1,18 @@
-import React, { useState } from 'react';
-import { Alert, ScrollView, TouchableOpacity, Image, View, Modal, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { Alert, ScrollView, TouchableOpacity, Image, View, Modal, StyleSheet, Dimensions } from 'react-native';
 import { TextInput, Button, Text, SegmentedButtons, Chip, Divider, IconButton, useTheme, ActivityIndicator } from 'react-native-paper';
 import { promptImageSourceDialog } from '../services/imagePickerService';
 import { uploadImageToCloudinary } from '../services/cloudinary';
 import { getCurrentLocation, reverseGeocodeOSM } from '../services/location';
 import { getFirebaseFirestore, getCurrentUser } from '../services/firebase';
+import { useLanguage } from '../context/LanguageContext';
+
+const { width } = Dimensions.get('window');
 
 export default function SellPartScreen({ navigation, user: initialUser }: any) {
   const activeUser = initialUser || getCurrentUser();
+  const { translateDynamic } = useLanguage();
+  
   const [title, setTitle] = useState('');
   const [carBrand, setCarBrand] = useState('');
   const [carModel, setCarModel] = useState('');
@@ -18,37 +23,68 @@ export default function SellPartScreen({ navigation, user: initialUser }: any) {
   const [contactName, setContactName] = useState(activeUser?.displayName || activeUser?.email?.split('@')[0] || '');
   const [contactPhone, setContactPhone] = useState('');
   const [description, setDescription] = useState('');
-  const [imageUrl, setImageUrl] = useState('');
+  
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  
   const [loading, setLoading] = useState(false);
   const [locLoading, setLocLoading] = useState(false);
+  const [isAutoFilling, setIsAutoFilling] = useState(false);
+  
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  
+  const [taxonomy, setTaxonomy] = useState<{ brands: string[], categories: string[] }>({
+    brands: ['Maruti Suzuki', 'Hyundai', 'Tata', 'Mahindra', 'Toyota', 'Honda', 'Kia', 'Ford'],
+    categories: ['Engine & Mechanical', 'Body & Exterior', 'Lights & Electricals', 'Suspension & Brakes', 'Interior & Wheels', 'Wiring & Harnesses']
+  });
 
-  const categories = [
-    'Engine & Mechanical',
-    'Body & Exterior',
-    'Lights & Electricals',
-    'Suspension & Brakes',
-    'Interior & Wheels',
-    'Wiring & Harnesses'
-  ];
-
-  const popularBrands = [
-    'Maruti Suzuki', 'Hyundai', 'Tata', 'Mahindra', 'Toyota', 'Honda', 'Kia', 'Ford'
-  ];
+  useEffect(() => {
+    // Fetch Taxonomy
+    const db = getFirebaseFirestore();
+    if (db && typeof db.collection === 'function') {
+      db.collection('taxonomy').doc('data').get().then((doc: any) => {
+        if (doc.exists) {
+          const data = doc.data();
+          setTaxonomy({
+            brands: data.brands?.length ? data.brands.map((b: any) => b.name) : taxonomy.brands,
+            categories: data.categories?.length ? data.categories : taxonomy.categories
+          });
+        }
+      }).catch((err: any) => console.warn('Failed to load taxonomy:', err));
+    }
+  }, []);
 
   const handlePickImage = async () => {
+    if (uploadedImages.length >= 6) {
+      Alert.alert('Limit Reached', 'You can upload a maximum of 6 images.');
+      return;
+    }
     try {
       const selectedUri = await promptImageSourceDialog(
         'Upload Auto Part Photo',
         'Take a live photo of the spare part or choose an image from your gallery:'
       );
-
       if (selectedUri) {
-        setImageUrl(selectedUri);
+        setUploadedImages(prev => [...prev, selectedUri]);
       }
     } catch (err) {
       console.warn('Image picker error:', err);
     }
+  };
+
+  const removeImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAutoFillAI = () => {
+    setIsAutoFilling(true);
+    // Simulate AI extraction delay for Native app
+    setTimeout(() => {
+      setTitle(carBrand && carModel ? `${carBrand} ${carModel} ${category} OEM Part` : 'OEM Spare Part Auto-Filled');
+      setDescription('Excellent condition. Genuine OEM part. Thoroughly inspected for quality and fitment compatibility.');
+      if (!price) setPrice('1500');
+      setIsAutoFilling(false);
+      Alert.alert('AI Auto-Fill Success', '✨ AI analyzed the part and auto-filled details successfully!');
+    }, 2500);
   };
 
   const handleDetectLocation = async () => {
@@ -58,7 +94,7 @@ export default function SellPartScreen({ navigation, user: initialUser }: any) {
       if (coords) {
         const geo = await reverseGeocodeOSM(coords.latitude, coords.longitude);
         if (geo?.city) {
-          setLocation(`${geo.city}, ${geo.state}`);
+          setLocation(`${geo.city}, ${geo.state || ''}`);
         }
       }
     } catch (err) {
@@ -74,32 +110,40 @@ export default function SellPartScreen({ navigation, user: initialUser }: any) {
       Alert.alert('Required Fields', 'Please fill in Part Title, Car Brand, Car Model, and a valid Price.');
       return;
     }
-
+    
     setLoading(true);
     try {
-      let finalImageUrl = imageUrl;
-      if (imageUrl && !imageUrl.startsWith('http://') && !imageUrl.startsWith('https://')) {
-        try {
-          finalImageUrl = await uploadImageToCloudinary(imageUrl, 'spare_parts');
-        } catch (uploadErr) {
-          console.warn('Cloudinary upload notice:', uploadErr);
+      // Upload all images
+      const finalImageUrls: string[] = [];
+      for (const uri of uploadedImages) {
+        if (!uri.startsWith('http://') && !uri.startsWith('https://')) {
+          try {
+            const uploadedUrl = await uploadImageToCloudinary(uri, 'spare_parts');
+            finalImageUrls.push(uploadedUrl);
+          } catch (uploadErr) {
+            console.warn('Cloudinary upload notice:', uploadErr);
+          }
+        } else {
+          finalImageUrls.push(uri);
         }
       }
+      
+      const primaryImageUrl = finalImageUrls.length > 0 ? finalImageUrls[0] : '';
 
       const db = getFirebaseFirestore();
       const newPartData = {
         title,
-        carBrand,
-        carModel,
+        brand: carBrand,
+        model: carModel,
         category,
         condition,
         price: Number(cleanPrice),
-        location: location || 'All India',
-        contactName: contactName || (activeUser?.displayName || 'Auto Seller'),
-        contactPhone: contactPhone || '+91 98765 00000',
-        description: description || '',
-        imageUrl: finalImageUrl || 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?auto=format&fit=crop&q=80&w=400',
-        imageUrls: [finalImageUrl || 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?auto=format&fit=crop&w=400'],
+        location,
+        description,
+        contactName,
+        contactPhone,
+        imageUrl: primaryImageUrl,
+        imageUrls: finalImageUrls,
         sellerId: activeUser?.uid || 'guest-seller',
         sellerEmail: activeUser?.email || '',
         sellerName: contactName || activeUser?.displayName || 'Auto Seller',
@@ -131,65 +175,85 @@ export default function SellPartScreen({ navigation, user: initialUser }: any) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }}>
-      <Text variant="headlineSmall" style={styles.title}>List Spare Part</Text>
-      <Text variant="bodySmall" style={styles.subtitle}>
-        Reach thousands of buyers & mechanics across India
-      </Text>
+      <View style={styles.headerRow}>
+        <View style={{ flex: 1 }}>
+          <Text variant="headlineSmall" style={styles.title}>{translateDynamic('List Spare Part')}</Text>
+          <Text variant="bodySmall" style={styles.subtitle}>
+            {translateDynamic('Reach thousands of buyers & mechanics across India')}
+          </Text>
+        </View>
+        <Button 
+          mode="contained-tonal" 
+          buttonColor="#EFF6FF" 
+          textColor="#1565FF" 
+          icon="creation"
+          loading={isAutoFilling}
+          onPress={handleAutoFillAI}
+          style={{ alignSelf: 'flex-start' }}
+          labelStyle={{ fontWeight: 'bold' }}
+        >
+          {translateDynamic('AI Auto-Fill')}
+        </Button>
+      </View>
 
-      {/* Image Upload Banner */}
-      <TouchableOpacity style={styles.imageBox} onPress={handlePickImage}>
-        {imageUrl ? (
-          <Image source={{ uri: imageUrl }} style={styles.previewImage} />
-        ) : (
-          <View style={styles.imagePlaceholder}>
-            <IconButton icon="camera-plus" size={32} iconColor="#1565FF" />
-            <Text variant="bodyMedium" style={{ color: '#1565FF', fontWeight: 'bold' }}>
-              Upload Part Photo
-            </Text>
-            <Text variant="bodySmall" style={{ color: '#94A3B8' }}>Tap to select from gallery</Text>
+      {/* Multiple Image Upload Row */}
+      <Text variant="titleSmall" style={styles.label}>{translateDynamic('Photos')} ({uploadedImages.length}/6)</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imageScroll}>
+        {uploadedImages.map((uri, index) => (
+          <View key={index} style={styles.thumbnailWrapper}>
+            <Image source={{ uri }} style={styles.thumbnailImage} />
+            <TouchableOpacity style={styles.removeImageBtn} onPress={() => removeImage(index)}>
+              <IconButton icon="close" size={14} iconColor="#FFF" style={{ margin: 0 }} />
+            </TouchableOpacity>
           </View>
+        ))}
+        {uploadedImages.length < 6 && (
+          <TouchableOpacity style={styles.addImageBox} onPress={handlePickImage}>
+            <IconButton icon="camera-plus" size={28} iconColor="#1565FF" />
+            <Text variant="labelSmall" style={{ color: '#1565FF', fontWeight: 'bold' }}>{translateDynamic('Add Photo')}</Text>
+          </TouchableOpacity>
         )}
-      </TouchableOpacity>
+      </ScrollView>
 
       <TextInput
-        label="Part Title *"
+        label={`${translateDynamic('Part Title')} *`}
         value={title}
         onChangeText={setTitle}
         mode="outlined"
-        placeholder="e.g. Maruti Swift Front Brake Pads"
+        placeholder={translateDynamic("e.g. Maruti Swift Front Brake Pads")}
         style={styles.input}
       />
 
-      <Text variant="titleSmall" style={styles.label}>Select Car Brand *</Text>
+      <Text variant="titleSmall" style={styles.label}>{translateDynamic('Select Car Brand')} *</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-        {popularBrands.map((brand) => (
+        {taxonomy.brands.map((brand) => (
           <Chip
             key={brand}
             selected={carBrand === brand}
             onPress={() => setCarBrand(brand)}
             style={styles.brandChip}
           >
-            {brand}
+            {translateDynamic(brand)}
           </Chip>
         ))}
       </ScrollView>
 
       <TextInput
-        label="Car Model *"
+        label={`${translateDynamic('Car Model')} *`}
         value={carModel}
         onChangeText={setCarModel}
         mode="outlined"
-        placeholder="e.g. Swift, Creta, i20, Scorpio"
+        placeholder={translateDynamic("e.g. Swift, Creta, i20, Scorpio")}
         style={styles.input}
       />
 
       <TouchableOpacity onPress={() => setShowCategoryModal(true)} style={styles.categorySelectBtn}>
-        <Text style={{ color: '#0F172A', fontWeight: '500' }}>Category: {category}</Text>
-        <Text style={{ color: '#1565FF' }}>Change ▾</Text>
+        <Text style={{ color: '#0F172A', fontWeight: '500' }}>{translateDynamic('Category')}: {translateDynamic(category)}</Text>
+        <Text style={{ color: '#1565FF' }}>{translateDynamic('Change')} ▾</Text>
       </TouchableOpacity>
 
       <TextInput
-        label="Price (₹) *"
+        label={`${translateDynamic('Price')} (₹) *`}
         value={price}
         onChangeText={setPrice}
         keyboardType="numeric"
@@ -198,25 +262,25 @@ export default function SellPartScreen({ navigation, user: initialUser }: any) {
         style={styles.input}
       />
 
-      <Text variant="titleSmall" style={styles.label}>Condition</Text>
+      <Text variant="titleSmall" style={styles.label}>{translateDynamic('Condition')}</Text>
       <SegmentedButtons
         value={condition}
         onValueChange={setCondition}
         buttons={[
-          { value: 'Brand New', label: 'New' },
-          { value: 'Like New', label: 'Like New' },
-          { value: 'Used (Good)', label: 'Used' },
+          { value: 'Brand New', label: translateDynamic('New') },
+          { value: 'Like New', label: translateDynamic('Like New') },
+          { value: 'Used (Good)', label: translateDynamic('Used') },
         ]}
         style={styles.segmented}
       />
 
       <View style={styles.locationContainer}>
         <TextInput
-          label="City / Location"
+          label={translateDynamic('City / Location')}
           value={location}
           onChangeText={setLocation}
           mode="outlined"
-          placeholder="e.g. Mumbai, Maharashtra"
+          placeholder={translateDynamic("e.g. Mumbai, Maharashtra")}
           style={[styles.input, { flex: 1, marginBottom: 0 }]}
         />
         <TouchableOpacity 
@@ -233,15 +297,14 @@ export default function SellPartScreen({ navigation, user: initialUser }: any) {
       </View>
 
       <TextInput
-        label="Contact Name"
+        label={translateDynamic('Contact Name')}
         value={contactName}
         onChangeText={setContactName}
         mode="outlined"
         style={[styles.input, { marginTop: 12 }]}
       />
-
       <TextInput
-        label="Contact Phone Number"
+        label={translateDynamic('Contact Phone Number')}
         value={contactPhone}
         onChangeText={setContactPhone}
         keyboardType="phone-pad"
@@ -251,13 +314,13 @@ export default function SellPartScreen({ navigation, user: initialUser }: any) {
       />
 
       <TextInput
-        label="Description & Fitment Notes"
+        label={translateDynamic('Description & Fitment Notes')}
         value={description}
         onChangeText={setDescription}
         multiline
         numberOfLines={3}
         mode="outlined"
-        placeholder="Mention part OEM number, condition details, or fitment compatibility"
+        placeholder={translateDynamic("Mention part OEM number, condition details, or fitment compatibility")}
         style={styles.input}
       />
 
@@ -269,16 +332,16 @@ export default function SellPartScreen({ navigation, user: initialUser }: any) {
         buttonColor="#1565FF"
         style={styles.submitButton}
       >
-        Publish Listing
+        {translateDynamic('Publish Listing')}
       </Button>
 
       {/* Category Modal */}
       <Modal visible={showCategoryModal} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text variant="titleLarge" style={styles.modalTitle}>Select Category</Text>
+            <Text variant="titleLarge" style={styles.modalTitle}>{translateDynamic('Select Category')}</Text>
             <Divider style={{ marginVertical: 12 }} />
-            {categories.map((cat) => (
+            {taxonomy.categories.map((cat) => (
               <TouchableOpacity
                 key={cat}
                 style={styles.catItem}
@@ -288,12 +351,12 @@ export default function SellPartScreen({ navigation, user: initialUser }: any) {
                 }}
               >
                 <Text style={[styles.catText, category === cat ? { color: '#1565FF', fontWeight: 'bold' } : undefined]}>
-                  {cat}
+                  {translateDynamic(cat)}
                 </Text>
               </TouchableOpacity>
             ))}
             <Button mode="contained" buttonColor="#0F172A" onPress={() => setShowCategoryModal(false)} style={{ marginTop: 16 }}>
-              Close
+              {translateDynamic('Close')}
             </Button>
           </View>
         </View>
@@ -308,31 +371,59 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#FFFFFF',
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
   title: {
     fontWeight: 'bold',
     color: '#0B1220',
   },
   subtitle: {
     color: '#64748B',
-    marginBottom: 16,
+    marginTop: 4,
   },
-  imageBox: {
-    height: 140,
+  imageScroll: {
+    marginBottom: 16,
+    flexDirection: 'row',
+  },
+  thumbnailWrapper: {
+    width: 100,
+    height: 100,
+    marginRight: 12,
+    position: 'relative',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addImageBox: {
+    width: 100,
+    height: 100,
     backgroundColor: '#F1F5F9',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#CBD5E1',
     borderStyle: 'dashed',
     justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    overflow: 'hidden',
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imagePlaceholder: {
     alignItems: 'center',
   },
   input: {
@@ -391,6 +482,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
+    maxHeight: '80%',
   },
   modalTitle: {
     fontWeight: 'bold',

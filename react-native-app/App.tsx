@@ -25,6 +25,7 @@ import {
   removeFcmTokenFromFirestore, 
   setupFcmListeners 
 } from './src/services/fcm';
+import { LanguageProvider } from './src/context/LanguageContext';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
@@ -141,12 +142,14 @@ export default function App() {
     <SafeErrorBoundary>
       <GestureHandlerRootView style={styles.container}>
         <SafeAreaProvider>
-          <StatusBar barStyle="light-content" backgroundColor="#0B1220" />
-          <PaperProvider theme={theme}>
-            <NavigationContainer ref={navigationRef}>
-              <AppNavigator user={currentUser} />
-            </NavigationContainer>
-          </PaperProvider>
+          <LanguageProvider>
+            <StatusBar barStyle="light-content" backgroundColor="#0B1220" />
+            <PaperProvider theme={theme}>
+              <NavigationContainer ref={navigationRef}>
+                <AppNavigator user={currentUser} />
+              </NavigationContainer>
+            </PaperProvider>
+          </LanguageProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </SafeErrorBoundary>
