@@ -1,6 +1,13 @@
 import * as RNScreens from 'react-native-screens';
-if (RNScreens && !RNScreens.compatibilityFlags) {
-  (RNScreens as any).compatibilityFlags = {};
+if (RNScreens) {
+  try {
+    if (!RNScreens.compatibilityFlags) {
+      (RNScreens as any).compatibilityFlags = {};
+    }
+    if (!RNScreens.ScreenStackItem && (RNScreens as any).Screen) {
+      (RNScreens as any).ScreenStackItem = (RNScreens as any).Screen;
+    }
+  } catch (_) {}
 }
 
 import auth from "@react-native-firebase/auth";

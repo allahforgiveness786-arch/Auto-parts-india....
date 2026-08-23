@@ -1,16 +1,26 @@
 import 'react-native-gesture-handler';
 import * as RNScreens from 'react-native-screens';
 
-// Polyfill compatibilityFlags for React Navigation v7 compatibility with react-native-screens
-if (RNScreens && !RNScreens.compatibilityFlags) {
+// Polyfill compatibilityFlags and ScreenStackItem for React Navigation v7 compatibility with react-native-screens
+if (RNScreens) {
   try {
-    RNScreens.compatibilityFlags = {};
+    if (!RNScreens.compatibilityFlags) {
+      RNScreens.compatibilityFlags = {};
+    }
+    if (!RNScreens.ScreenStackItem && RNScreens.Screen) {
+      RNScreens.ScreenStackItem = RNScreens.Screen;
+    }
   } catch (_) {}
 }
 try {
   const screensModule = require('react-native-screens');
-  if (screensModule && !screensModule.compatibilityFlags) {
-    screensModule.compatibilityFlags = {};
+  if (screensModule) {
+    if (!screensModule.compatibilityFlags) {
+      screensModule.compatibilityFlags = {};
+    }
+    if (!screensModule.ScreenStackItem && screensModule.Screen) {
+      screensModule.ScreenStackItem = screensModule.Screen;
+    }
   }
 } catch (_) {}
 
