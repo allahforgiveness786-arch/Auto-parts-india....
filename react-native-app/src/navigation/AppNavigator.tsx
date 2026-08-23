@@ -27,6 +27,7 @@ import AuthScreen from '../screens/AuthScreen';
 import SellerProfileScreen from '../screens/SellerProfileScreen';
 import AdminScreen from '../screens/AdminScreen';
 import SplashScreen from '../screens/SplashScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -217,6 +218,12 @@ export default function AppNavigator({ user }: { user: any }) {
         name="Admin" 
         component={AdminScreen}
         options={{ title: 'Admin Moderation' }}
+      />
+
+      <Stack.Screen 
+        name="Notifications" 
+        component={NotificationsScreen}
+        options={{ title: 'Notifications & Announcements' }}
       />
     </Stack.Navigator>
   );

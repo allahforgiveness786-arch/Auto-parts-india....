@@ -244,47 +244,26 @@ jobs:
           sudo swapon /mnt/swapfile
           free -h
 
-      - name: Clean Gradle and Rebuild Environment (Strict No-Cache)
-        run: |
-          cd react-native-app/android
-          chmod +x ./gradlew || true
-          rm -rf app/build || true
-          rm -rf app/.cxx || true
-          rm -rf build || true
-          rm -rf .gradle || true
-          rm -rf ~/.gradle/caches || true
-          rm -rf ~/.gradle/daemon || true
-          ./gradlew --stop || true
-          ./gradlew clean --no-daemon --no-build-cache || true
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: "8.8"
+          cache-read-only: false
 
       - name: Setup Android NDK
         run: |
           echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "ndk;26.1.10909125"
 
-      - name: Build React Native Android Release APK (Strict Clean Build)
+      - name: Build React Native Android Release APK
         env:
           CI: true
-          REACT_NATIVE_MAX_WORKERS: 1
-          CMAKE_BUILD_PARALLEL_LEVEL: 1
-          NINJA_STATUS: "[%f/%c] "
+          REACT_NATIVE_MAX_WORKERS: 2
+          CMAKE_BUILD_PARALLEL_LEVEL: 2
           ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/26.1.10909125
         run: |
           cd react-native-app/android
           chmod +x ./gradlew || true
-          ./gradlew assembleRelease --console=plain --stacktrace \
-          -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC"
-
-      - name: Build React Native Android Debug APK (Strict Clean Build)
-        env:
-          CI: true
-          REACT_NATIVE_MAX_WORKERS: 1
-          CMAKE_BUILD_PARALLEL_LEVEL: 1
-          NINJA_STATUS: "[%f/%c] "
-          ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/26.1.10909125
-        run: |
-          cd react-native-app/android
-          chmod +x ./gradlew || true
-          ./gradlew assembleDebug --console=plain --stacktrace \
+          ./gradlew assembleRelease --parallel --build-cache \
           -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC"
 
       - name: Upload Release APK Artifact
@@ -292,9 +271,3 @@ jobs:
         with:
           name: react-native-release-apk
           path: react-native-app/android/app/build/outputs/apk/release/*.apk
-
-      - name: Upload Debug APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: react-native-debug-apk
-          path: react-native-app/android/app/build/outputs/apk/debug/*.apk

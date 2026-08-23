@@ -183,7 +183,7 @@ export default function HomeScreen({ navigation, user }: any) {
         <View style={styles.headerRight}>
           <TouchableOpacity 
             style={styles.bellBtn} 
-            onPress={() => navigation.navigate('Chats')}
+            onPress={() => navigation.navigate('Notifications')}
           >
             <IconButton icon="bell-outline" iconColor="#FFFFFF" size={22} style={{ margin: 0 }} />
             <Badge size={8} style={styles.badge} />
