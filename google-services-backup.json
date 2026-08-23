@@ -82,6 +82,14 @@
       "oauth_client": [
         {
           "client_id": "751764116522-gr59kobj3c3i1hsgr5hiumauk5otr5sq.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.autopartsindia",
+            "certificate_hash": "7563efa05fa3ff12872c3ed8574c4da93ec81a10"
+          }
+        },
+        {
+          "client_id": "751764116522-gr59kobj3c3i1hsgr5hiumauk5otr5sq.apps.googleusercontent.com",
           "client_type": 3
         }
       ],

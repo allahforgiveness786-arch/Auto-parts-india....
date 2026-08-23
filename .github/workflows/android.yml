@@ -197,6 +197,14 @@ jobs:
                 "oauth_client": [
                   {
                     "client_id": "751764116522-gr59kobj3c3i1hsgr5hiumauk5otr5sq.apps.googleusercontent.com",
+                    "client_type": 1,
+                    "android_info": {
+                      "package_name": "com.autopartsindia",
+                      "certificate_hash": "7563efa05fa3ff12872c3ed8574c4da93ec81a10"
+                    }
+                  },
+                  {
+                    "client_id": "751764116522-gr59kobj3c3i1hsgr5hiumauk5otr5sq.apps.googleusercontent.com",
                     "client_type": 3
                   }
                 ],
@@ -224,15 +232,16 @@ jobs:
             echo "google-services.json is already present."
           fi
 
-      - name: Ensure Debug Keystore
+      - name: Ensure Fixed Debug Keystore with Firebase SHA-1
         run: |
           cd react-native-app/android/app
-          if [ ! -f "debug.keystore" ]; then
-            echo "debug.keystore is missing. Auto-generating development signing key..."
-            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -storetype PKCS12
-          else
-            echo "debug.keystore is already present."
+          if [ ! -f "debug.keystore" ] || [ $(wc -c <"debug.keystore") -lt 100 ]; then
+            echo "Writing fixed development signing keystore matching Firebase SHA-1..."
+            echo "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" | base64 -d > debug.keystore
           fi
+          echo "=== VERIFYING KEYSTORE SIGNING FINGERPRINT ==="
+          keytool -list -v -keystore debug.keystore -storepass android -alias androiddebugkey | grep -E "(SHA1|SHA256):" || true
+          echo "==============================================="
 
       - name: Create Swap File to Prevent Out of Memory
         run: |
