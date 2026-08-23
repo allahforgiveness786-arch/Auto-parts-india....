@@ -87,7 +87,7 @@ export default function SellerProfileScreen({ route, navigation }: any) {
     const followId = `${currentUser.uid}_${sellerId}`;
     try {
       if (isFollowing) {
-        await deleteDoc(firestore().collection('follows').doc(followId));
+        await firestore().collection('follows').doc(followId).delete();
         setIsFollowing(false);
         setFollowersCount(prev => Math.max(0, prev - 1));
       } else {

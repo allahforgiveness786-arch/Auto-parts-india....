@@ -36,8 +36,7 @@ export default function ProfileScreen({ navigation, user: initialUser }: any) {
     }
 
     const userDocRef = firestore().collection('users').doc(currentAuthUser.uid);
-    const unsubscribe = onSnapshot(
-      userDocRef,
+    const unsubscribe = userDocRef.onSnapshot(
       (docSnap) => {
         const isExisting = typeof (docSnap as any).exists === 'function' ? (docSnap as any).exists() : Boolean(docSnap.exists);
         if (isExisting) {

@@ -1,3 +1,8 @@
+import * as RNScreens from 'react-native-screens';
+if (RNScreens && !RNScreens.compatibilityFlags) {
+  (RNScreens as any).compatibilityFlags = {};
+}
+
 import auth from "@react-native-firebase/auth";
 import { View, Text, StyleSheet, StatusBar } from "react-native";
 import React, { useState, useEffect, useRef } from 'react';

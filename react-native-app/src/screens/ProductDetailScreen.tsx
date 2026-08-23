@@ -114,7 +114,7 @@ export default function ProductDetailScreen({ route, navigation, user }: any) {
             try {
               setIsDeleting(true);
               if (part.id) {
-                await deleteDoc(firestore().collection('spareParts').doc(part.id));
+                await firestore().collection('spareParts').doc(part.id).delete();
               }
               Alert.alert('Listing Deleted', 'Your spare part listing has been permanently deleted.');
               navigation.goBack();

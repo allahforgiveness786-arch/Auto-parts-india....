@@ -1,3 +1,8 @@
+import * as RNScreens from 'react-native-screens';
+if (RNScreens && !RNScreens.compatibilityFlags) {
+  (RNScreens as any).compatibilityFlags = {};
+}
+
 import React from 'react';
 import { StyleSheet, Platform, StatusBar } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';

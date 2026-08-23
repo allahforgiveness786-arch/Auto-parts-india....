@@ -1,4 +1,17 @@
 import 'react-native-gesture-handler';
+import * as RNScreens from 'react-native-screens';
+
+// Polyfill compatibilityFlags for React Navigation v7 compatibility with react-native-screens
+if (RNScreens && !RNScreens.compatibilityFlags) {
+  (RNScreens as any).compatibilityFlags = {};
+}
+try {
+  const screensModule = require('react-native-screens');
+  if (screensModule && !screensModule.compatibilityFlags) {
+    screensModule.compatibilityFlags = {};
+  }
+} catch (_) {}
+
 import { enableScreens } from 'react-native-screens';
 
 enableScreens(true);

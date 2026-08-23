@@ -92,7 +92,7 @@ export default function AdminScreen({ navigation }: any) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteDoc(firestore().collection('spareParts').doc(id));
+              await firestore().collection('spareParts').doc(id).delete();
               Alert.alert('Deleted', 'Listing removed from marketplace.');
             } catch (err: any) {
               Alert.alert('Error', err.message || 'Failed to delete listing.');
