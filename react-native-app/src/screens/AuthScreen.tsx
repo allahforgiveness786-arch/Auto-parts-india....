@@ -9,8 +9,7 @@ import {
   ActivityIndicator,
   Modal,
 } from 'react-native';
-import { Text } from 'react-native-paper';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { Text, Icon } from 'react-native-paper';
 import BrandLogo from '../components/BrandLogo';
 import { signInWithGoogleNative } from '../services/googleAuth';
 
@@ -36,13 +35,6 @@ export default function AuthScreen({ navigation }: any) {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSkipGuest = () => {
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'MainTabs' }],
-    });
   };
 
   return (
@@ -79,7 +71,7 @@ export default function AuthScreen({ navigation }: any) {
           {/* Error Message if any */}
           {errorMessage ? (
             <View style={styles.errorBox}>
-              <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#F87171" />
+              <Icon source="alert-circle-outline" size={18} color="#F87171" />
               <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
           ) : null}
@@ -98,7 +90,7 @@ export default function AuthScreen({ navigation }: any) {
               </View>
             ) : (
               <View style={styles.btnRow}>
-                <MaterialCommunityIcons name="google" size={22} color="#EA4335" style={styles.googleIcon} />
+                <Icon source="google" size={22} color="#EA4335" />
                 <Text style={styles.googleBtnText}>Continue with Google</Text>
               </View>
             )}
@@ -107,15 +99,15 @@ export default function AuthScreen({ navigation }: any) {
           {/* Feature Highlights / Trust Badges */}
           <View style={styles.trustBadgesBox}>
             <View style={styles.badgeRow}>
-              <MaterialCommunityIcons name="shield-check" size={16} color="#38BDF8" />
+              <Icon source="shield-check" size={16} color="#38BDF8" />
               <Text style={styles.badgeText}>Verified Sellers & Buyers</Text>
             </View>
             <View style={styles.badgeRow}>
-              <MaterialCommunityIcons name="message-text-outline" size={16} color="#38BDF8" />
+              <Icon source="message-text-outline" size={16} color="#38BDF8" />
               <Text style={styles.badgeText}>Direct End-to-End Chat</Text>
             </View>
             <View style={styles.badgeRow}>
-              <MaterialCommunityIcons name="lock-check-outline" size={16} color="#38BDF8" />
+              <Icon source="lock-check-outline" size={16} color="#38BDF8" />
               <Text style={styles.badgeText}>Secure Google Authentication</Text>
             </View>
           </View>
@@ -127,15 +119,11 @@ export default function AuthScreen({ navigation }: any) {
             <View style={styles.dividerLine} />
           </View>
 
-          {/* Guest Browsing Action */}
-          <TouchableOpacity 
-            style={styles.guestBtn}
-            onPress={handleSkipGuest}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.guestBtnText}>Explore Marketplace as Guest</Text>
-            <MaterialCommunityIcons name="arrow-right" size={16} color="#94A3B8" />
-          </TouchableOpacity>
+          {/* Secure Note */}
+          <View style={styles.secureNoteRow}>
+            <Icon source="shield-check-outline" size={16} color="#10B981" />
+            <Text style={styles.secureNoteText}>100% Secure authentication via Google Play Services</Text>
+          </View>
         </View>
 
         {/* Footer Legal Terms */}
@@ -169,7 +157,7 @@ export default function AuthScreen({ navigation }: any) {
                 {legalModal === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
               </Text>
               <TouchableOpacity onPress={() => setLegalModal(null)} style={styles.closeBtn}>
-                <MaterialCommunityIcons name="close" size={22} color="#FFFFFF" />
+                <Icon source="close" size={22} color="#FFFFFF" />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalBody}>

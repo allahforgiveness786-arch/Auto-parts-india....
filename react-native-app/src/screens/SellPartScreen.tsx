@@ -1,14 +1,13 @@
-import firestore from '@react-native-firebase/firestore';
-
-import { Alert, ScrollView, TouchableOpacity, Image, View, Modal, StyleSheet } from 'react-native';
-
 import React, { useState } from 'react';
+import { Alert, ScrollView, TouchableOpacity, Image, View, Modal, StyleSheet } from 'react-native';
 import { TextInput, Button, Text, SegmentedButtons, Chip, Divider, IconButton, useTheme, ActivityIndicator } from 'react-native-paper';
 import { promptImageSourceDialog } from '../services/imagePickerService';
 import { uploadImageToCloudinary } from '../services/cloudinary';
 import { getCurrentLocation, reverseGeocodeOSM } from '../services/location';
+import { getFirebaseFirestore, getCurrentUser } from '../services/firebase';
 
-export default function SellPartScreen({ navigation, user }: any) {
+export default function SellPartScreen({ navigation, user: initialUser }: any) {
+  const activeUser = initialUser || getCurrentUser();
   const [title, setTitle] = useState('');
   const [carBrand, setCarBrand] = useState('');
   const [carModel, setCarModel] = useState('');
@@ -16,7 +15,7 @@ export default function SellPartScreen({ navigation, user }: any) {
   const [condition, setCondition] = useState('Brand New');
   const [price, setPrice] = useState('');
   const [location, setLocation] = useState('Mumbai');
-  const [contactName, setContactName] = useState(user?.displayName || user?.email?.split('@')[0] || '');
+  const [contactName, setContactName] = useState(activeUser?.displayName || activeUser?.email?.split('@')[0] || '');
   const [contactPhone, setContactPhone] = useState('');
   const [description, setDescription] = useState('');
   const [imageUrl, setImageUrl] = useState('');
@@ -79,7 +78,12 @@ export default function SellPartScreen({ navigation, user }: any) {
         finalImageUrl = await uploadImageToCloudinary(imageUrl, 'spare_parts');
       }
 
-      await firestore().collection('spareParts').add({
+      const db = getFirebaseFirestore();
+      if (!db || typeof db.collection !== 'function') {
+        throw new Error('Database is not available. Please try again.');
+      }
+
+      await db.collection('spareParts').add({
         title,
         carBrand,
         carModel,
@@ -91,8 +95,8 @@ export default function SellPartScreen({ navigation, user }: any) {
         contactPhone,
         description,
         imageUrl: finalImageUrl || 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?auto=format&fit=crop&q=80&w=400',
-        sellerId: user?.uid || 'guest',
-        sellerEmail: user?.email || '',
+        sellerId: activeUser?.uid || 'guest',
+        sellerEmail: activeUser?.email || '',
         createdAt: Date.now(),
         approved: true,
         verified: true,

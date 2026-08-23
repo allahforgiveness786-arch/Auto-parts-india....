@@ -1,8 +1,8 @@
-import firestore from '@react-native-firebase/firestore';
-import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Image, FlatList } from 'react-native';
 import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Image, FlatList } from 'react-native';
 import { Text, SegmentedButtons, Icon } from 'react-native-paper';
 import EditListingModal from '../components/EditListingModal';
+import { getFirebaseFirestore } from '../services/firebase';
 
 export default function AdminScreen({ navigation }: any) {
   const [tab, setTab] = useState('listings');
@@ -23,35 +23,41 @@ export default function AdminScreen({ navigation }: any) {
     let unsubUsers = () => {};
 
     try {
+      const db = getFirebaseFirestore();
+      if (!db || typeof db.collection !== 'function') {
+        setLoading(false);
+        return;
+      }
+
       // Listen to spareParts
-      const qListings = firestore().collection('spareParts').orderBy('createdAt', 'desc');
-      unsubListings = qListings.onSnapshot((snap) => {
+      const qListings = db.collection('spareParts').orderBy('createdAt', 'desc');
+      unsubListings = qListings.onSnapshot((snap: any) => {
         const list: any[] = [];
-        snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+        snap.forEach((d: any) => list.push({ id: d.id, ...d.data() }));
         setListings(list);
         setLoading(false);
-      }, (err) => {
+      }, (err: any) => {
         console.warn('Admin listings snapshot error:', err);
         setLoading(false);
       });
 
       // Listen to banners
-      const qBanners = firestore().collection('banners');
-      unsubBanners = qBanners.onSnapshot((snap) => {
+      const qBanners = db.collection('banners');
+      unsubBanners = qBanners.onSnapshot((snap: any) => {
         const list: any[] = [];
-        snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+        snap.forEach((d: any) => list.push({ id: d.id, ...d.data() }));
         setBanners(list);
-      }, (err) => {
+      }, (err: any) => {
         console.warn('Admin banners snapshot error:', err);
       });
 
       // Listen to users
-      const qUsers = firestore().collection('users');
-      unsubUsers = qUsers.onSnapshot((snap) => {
+      const qUsers = db.collection('users');
+      unsubUsers = qUsers.onSnapshot((snap: any) => {
         const list: any[] = [];
-        snap.forEach((d) => list.push({ id: d.id, ...d.data() }));
+        snap.forEach((d: any) => list.push({ id: d.id, ...d.data() }));
         setUsers(list);
-      }, (err) => {
+      }, (err: any) => {
         console.warn('Admin users snapshot error:', err);
       });
     } catch (e) {
@@ -68,7 +74,10 @@ export default function AdminScreen({ navigation }: any) {
 
   const handleToggleApprove = async (item: any) => {
     try {
-      const itemRef = firestore().collection('spareParts').doc(item.id);
+      const db = getFirebaseFirestore();
+      if (!db || typeof db.collection !== 'function') return;
+
+      const itemRef = db.collection('spareParts').doc(item.id);
       const newStatus = item.approved === false ? true : false;
       await itemRef.update({
         approved: newStatus,
@@ -92,7 +101,9 @@ export default function AdminScreen({ navigation }: any) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await firestore().collection('spareParts').doc(id).delete();
+              const db = getFirebaseFirestore();
+              if (!db || typeof db.collection !== 'function') return;
+              await db.collection('spareParts').doc(id).delete();
               Alert.alert('Deleted', 'Listing removed from marketplace.');
             } catch (err: any) {
               Alert.alert('Error', err.message || 'Failed to delete listing.');
@@ -105,7 +116,10 @@ export default function AdminScreen({ navigation }: any) {
 
   const handleToggleBanner = async (banner: any) => {
     try {
-      const bannerRef = firestore().collection('banners').doc(banner.id);
+      const db = getFirebaseFirestore();
+      if (!db || typeof db.collection !== 'function') return;
+
+      const bannerRef = db.collection('banners').doc(banner.id);
       const newActive = banner.active === false ? true : false;
       await bannerRef.update({
         active: newActive,

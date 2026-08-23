@@ -1,13 +1,8 @@
 
-import auth from "@react-native-firebase/auth";
-import firestore from '@react-native-firebase/firestore';
-import { Alert } from 'react-native';
-import { Text, Surface, Button, Icon, ActivityIndicator as PaperActivityIndicator } from 'react-native-paper';
-
-import { View, ScrollView, StyleSheet, Linking, TouchableOpacity, Image, ActivityIndicator, FlatList } from 'react-native';
 import React, { useState, useEffect } from 'react';
-
- 
+import { View, ScrollView, StyleSheet, Linking, TouchableOpacity, Image, ActivityIndicator, FlatList, Alert } from 'react-native';
+import { Text, Surface, Button, Icon, ActivityIndicator as PaperActivityIndicator } from 'react-native-paper';
+import { getFirebaseAuth, getFirebaseFirestore, getCurrentUser } from '../services/firebase';
 
 export default function SellerProfileScreen({ route, navigation }: any) {
   const { seller, sellerId: paramSellerId, sellerName: paramSellerName } = route.params || {};
@@ -23,7 +18,7 @@ export default function SellerProfileScreen({ route, navigation }: any) {
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
 
-  const currentUser = auth().currentUser;
+  const currentUser = getCurrentUser();
   const isOwnProfile = currentUser?.uid === sellerId;
 
   useEffect(() => {
@@ -33,17 +28,20 @@ export default function SellerProfileScreen({ route, navigation }: any) {
     const fetchSellerData = async () => {
       setLoading(true);
       try {
+        const db = getFirebaseFirestore();
+        if (!db || typeof db.collection !== 'function') return;
+
         // 1. Fetch seller listings
-        const q = firestore().collection('spareParts').where('sellerId', '==', sellerId);
+        const q = db.collection('spareParts').where('sellerId', '==', sellerId);
         const listingsSnap = await q.get();
         const items: any[] = [];
-        listingsSnap.forEach(d => {
+        listingsSnap.forEach((d: any) => {
           items.push({ id: d.id, ...d.data() });
         });
 
         // 2. Fetch followers & following counts
-        const followersQ = firestore().collection('follows').where('followingId', '==', sellerId);
-        const followingQ = firestore().collection('follows').where('followerId', '==', sellerId);
+        const followersQ = db.collection('follows').where('followingId', '==', sellerId);
+        const followingQ = db.collection('follows').where('followerId', '==', sellerId);
         const [followersSnap, followingSnap] = await Promise.all([
           followersQ.get(),
           followingQ.get()
@@ -52,12 +50,12 @@ export default function SellerProfileScreen({ route, navigation }: any) {
         // 3. Check follow status if logged in
         let followingStatus = false;
         if (currentUser?.uid && currentUser.uid !== sellerId) {
-          const followDoc = await firestore().collection('follows').doc(`${currentUser.uid}_${sellerId}`).get();
+          const followDoc = await db.collection('follows').doc(`${currentUser.uid}_${sellerId}`).get();
           followingStatus = typeof (followDoc as any).exists === 'function' ? (followDoc as any).exists() : Boolean(followDoc.exists);
         }
 
         if (isMounted) {
-          setActiveListings(items.filter(it => !it.sold));
+          setActiveListings(items.filter((it: any) => !it.sold));
           setFollowersCount(followersSnap.size);
           setFollowingCount(followingSnap.size);
           setIsFollowing(followingStatus);
@@ -86,12 +84,15 @@ export default function SellerProfileScreen({ route, navigation }: any) {
     setFollowLoading(true);
     const followId = `${currentUser.uid}_${sellerId}`;
     try {
+      const db = getFirebaseFirestore();
+      if (!db || typeof db.collection !== 'function') return;
+
       if (isFollowing) {
-        await firestore().collection('follows').doc(followId).delete();
+        await db.collection('follows').doc(followId).delete();
         setIsFollowing(false);
         setFollowersCount(prev => Math.max(0, prev - 1));
       } else {
-        await firestore().collection('follows').doc(followId).set({
+        await db.collection('follows').doc(followId).set({
           id: followId,
           followerId: currentUser.uid,
           followingId: sellerId,

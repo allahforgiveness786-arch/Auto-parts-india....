@@ -7,34 +7,40 @@ import {
   RefreshControl,
   StatusBar,
 } from 'react-native';
-import { Text, Surface, IconButton, ActivityIndicator } from 'react-native-paper';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import firestore from '@react-native-firebase/firestore';
-import auth from '@react-native-firebase/auth';
+import { Text, Surface, IconButton, ActivityIndicator, Icon } from 'react-native-paper';
+import { getFirebaseFirestore, getCurrentUser } from '../services/firebase';
 
 export default function NotificationsScreen({ navigation }: any) {
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const currentUser = auth().currentUser;
+  const currentUser = getCurrentUser();
 
   const fetchNotifications = () => {
     try {
-      const unsub = firestore()
+      const db = getFirebaseFirestore();
+      if (!db || typeof db.collection !== 'function') {
+        setLoading(false);
+        setRefreshing(false);
+        return () => {};
+      }
+      const unsub = db
         .collection('announcements')
         .orderBy('createdAt', 'desc')
         .limit(30)
         .onSnapshot(
-          (snapshot) => {
+          (snapshot: any) => {
             const list: any[] = [];
-            snapshot.forEach((doc) => {
-              list.push({ id: doc.id, ...doc.data() });
-            });
+            if (snapshot && typeof snapshot.forEach === 'function') {
+              snapshot.forEach((doc: any) => {
+                list.push({ id: doc.id, ...doc.data() });
+              });
+            }
             setAnnouncements(list);
             setLoading(false);
             setRefreshing(false);
           },
-          (err) => {
+          (err: any) => {
             console.warn('[NotificationsScreen] Snapshot error:', err);
             setLoading(false);
             setRefreshing(false);
@@ -53,7 +59,7 @@ export default function NotificationsScreen({ navigation }: any) {
     const unsub = fetchNotifications();
     return () => {
       try {
-        unsub();
+        if (typeof unsub === 'function') unsub();
       } catch (_) {}
     };
   }, []);
@@ -101,7 +107,7 @@ export default function NotificationsScreen({ navigation }: any) {
       <Surface style={styles.card} elevation={1}>
         <View style={styles.cardHeader}>
           <View style={[styles.iconBox, { backgroundColor: bg }]}>
-            <MaterialCommunityIcons name={icon as any} size={20} color={color} />
+            <Icon source={icon} size={20} color={color} />
           </View>
           <View style={styles.headerInfo}>
             <View style={styles.titleRow}>
@@ -133,7 +139,7 @@ export default function NotificationsScreen({ navigation }: any) {
       ) : announcements.length === 0 ? (
         <View style={styles.centerContainer}>
           <View style={styles.emptyIconBox}>
-            <MaterialCommunityIcons name="bell-off-outline" size={48} color="#64748B" />
+            <Icon source="bell-off-outline" size={48} color="#64748B" />
           </View>
           <Text variant="titleMedium" style={styles.emptyTitle}>
             No Notifications Yet

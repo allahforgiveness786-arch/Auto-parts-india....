@@ -1,25 +1,30 @@
-import firestore from '@react-native-firebase/firestore';
-import { View, FlatList, StyleSheet, TouchableOpacity } from "react-native";
 import React, { useState, useEffect } from 'react';
-import { List, Avatar, Text, Badge, Divider, useTheme } from 'react-native-paper';
+import { View, FlatList, StyleSheet, TouchableOpacity } from "react-native";
+import { List, Avatar, Text, Badge, Divider, useTheme, Button } from 'react-native-paper';
+import { getFirebaseFirestore, getCurrentUser } from '../services/firebase';
 
-export default function ChatsScreen({ navigation, user }: any) {
+export default function ChatsScreen({ navigation, user: initialUser }: any) {
   const [chats, setChats] = useState<any[]>([]);
+  const activeUser = initialUser || getCurrentUser();
 
   useEffect(() => {
-    if (!user || false) return;
+    const activeUid = activeUser?.uid || activeUser?.id;
+    if (!activeUid) return;
 
     let unsubscribe = () => {};
     try {
-      const q = firestore().collection('chats').where('participants', 'array-contains', user.uid);
+      const db = getFirebaseFirestore();
+      if (!db || typeof db.collection !== 'function') return;
 
-      unsubscribe = q.onSnapshot((snapshot) => {
+      const q = db.collection('chats').where('participants', 'array-contains', activeUid);
+
+      unsubscribe = q.onSnapshot((snapshot: any) => {
         const list: any[] = [];
-        snapshot.forEach((doc) => {
+        snapshot.forEach((doc: any) => {
           list.push({ id: doc.id, ...doc.data() });
         });
         setChats(list);
-      }, (err) => {
+      }, (err: any) => {
         console.warn('Chats snapshot error:', err);
       });
     } catch (e) {
@@ -29,12 +34,15 @@ export default function ChatsScreen({ navigation, user }: any) {
     return () => {
       try { unsubscribe(); } catch (_) {}
     };
-  }, [user]);
+  }, [activeUser?.uid, activeUser?.id]);
 
-  if (!user) {
+  if (!activeUser) {
     return (
       <View style={styles.centerContainer}>
         <Text variant="titleMedium" style={styles.text}>Sign in to view your conversations</Text>
+        <Button mode="contained" onPress={() => navigation.navigate('Auth')} style={{ marginTop: 16 }}>
+          Sign In
+        </Button>
       </View>
     );
   }

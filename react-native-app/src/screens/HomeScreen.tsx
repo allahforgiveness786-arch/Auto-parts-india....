@@ -1,6 +1,5 @@
-import firestore from '@react-native-firebase/firestore';
-import { View, FlatList, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, Image, Dimensions, SafeAreaView, StatusBar, Modal } from "react-native";
 import React, { useState, useEffect } from 'react';
+import { View, FlatList, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, Image, Dimensions, SafeAreaView, StatusBar, Modal } from "react-native";
 import { 
   Searchbar, 
   Text, 
@@ -15,6 +14,7 @@ import {
   Divider,
   Surface
 } from 'react-native-paper';
+import { getFirebaseFirestore } from '../services/firebase';
 import { getCurrentLocation, reverseGeocodeOSM } from '../services/location';
 import BrandLogo from '../components/BrandLogo';
 
@@ -78,17 +78,22 @@ export default function HomeScreen({ navigation, user }: any) {
     setLoading(true);
     let unsubscribe = () => {};
     try {
-      const q = firestore().collection('spareParts').orderBy('createdAt', 'desc');
+      const db = getFirebaseFirestore();
+      if (!db || typeof db.collection !== 'function') {
+        setLoading(false);
+        return;
+      }
+      const q = db.collection('spareParts').orderBy('createdAt', 'desc');
 
-      unsubscribe = q.onSnapshot((snapshot) => {
+      unsubscribe = q.onSnapshot((snapshot: any) => {
         const list: any[] = [];
-        snapshot.forEach((doc) => {
+        snapshot.forEach((doc: any) => {
           list.push({ id: doc.id, ...doc.data() });
         });
         setParts(list);
         setLoading(false);
         setRefreshing(false);
-      }, (err) => {
+      }, (err: any) => {
         console.warn('Error fetching parts:', err);
         setLoading(false);
         setRefreshing(false);

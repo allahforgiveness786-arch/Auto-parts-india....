@@ -10,9 +10,8 @@ if (RNScreens) {
   } catch (_) {}
 }
 
-import auth from "@react-native-firebase/auth";
-import { View, Text, StyleSheet, StatusBar } from "react-native";
 import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, StatusBar } from "react-native";
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PaperProvider } from 'react-native-paper';
 import { NavigationContainer } from '@react-navigation/native';
@@ -20,6 +19,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { theme } from './src/theme';
 import AppNavigator from './src/navigation/AppNavigator';
 import { navigationRef } from './src/navigation/navigationRef';
+import { getFirebaseAuth, getCurrentUser } from './src/services/firebase';
 import { 
   saveFcmTokenToFirestore, 
   removeFcmTokenFromFirestore, 
@@ -76,8 +76,9 @@ export default function App() {
     let unsubscribeAuth = () => {};
 
     try {
-      if (auth) {
-        unsubscribeAuth = auth().onAuthStateChanged(async (user) => {
+      const authInst = getFirebaseAuth();
+      if (authInst && typeof authInst.onAuthStateChanged === 'function') {
+        unsubscribeAuth = authInst.onAuthStateChanged(async (user: any) => {
           try {
             if (cleanupFcm) {
               cleanupFcm();

@@ -1,28 +1,41 @@
-import firestore from '@react-native-firebase/firestore';
-import { View, FlatList, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import React, { useState, useEffect } from 'react';
+import { View, FlatList, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import { TextInput, IconButton, Card, Avatar, Text, useTheme } from 'react-native-paper';
+import { getFirebaseFirestore, getCurrentUser } from '../services/firebase';
 
-export default function ChatRoomScreen({ route, user }: any) {
+export default function ChatRoomScreen({ route, user: initialUser }: any) {
   const { chatId, part } = route.params || {};
   const [messages, setMessages] = useState<any[]>([]);
   const [inputText, setInputText] = useState('');
+  const user = initialUser || getCurrentUser();
 
   useEffect(() => {
     if (!chatId) return;
 
-    const messagesRef = firestore().collection('chats').doc(chatId).collection('messages');
-    const q = messagesRef.orderBy('createdAt', 'asc');
+    let unsubscribe = () => {};
+    try {
+      const db = getFirebaseFirestore();
+      if (!db || typeof db.collection !== 'function') return;
 
-    const unsubscribe = q.onSnapshot((snapshot) => {
-      const list: any[] = [];
-      snapshot.forEach((doc) => {
-        list.push({ id: doc.id, ...doc.data() });
+      const messagesRef = db.collection('chats').doc(chatId).collection('messages');
+      const q = messagesRef.orderBy('createdAt', 'asc');
+
+      unsubscribe = q.onSnapshot((snapshot: any) => {
+        const list: any[] = [];
+        snapshot.forEach((doc: any) => {
+          list.push({ id: doc.id, ...doc.data() });
+        });
+        setMessages(list);
+      }, (err: any) => {
+        console.warn('Messages snapshot error:', err);
       });
-      setMessages(list);
-    });
+    } catch (e) {
+      console.warn('Chat room snapshot error:', e);
+    }
 
-    return () => unsubscribe();
+    return () => {
+      try { unsubscribe(); } catch (_) {}
+    };
   }, [chatId]);
 
   const handleSend = async () => {
@@ -32,22 +45,25 @@ export default function ChatRoomScreen({ route, user }: any) {
     setInputText('');
 
     try {
-      const messagesRef = firestore().collection('chats').doc(chatId).collection('messages');
+      const db = getFirebaseFirestore();
+      if (!db || typeof db.collection !== 'function') return;
+
+      const messagesRef = db.collection('chats').doc(chatId).collection('messages');
       await messagesRef.add({
-        senderId: user.uid,
+        senderId: user.uid || user.id,
         senderName: user.displayName || user.email || 'User',
         text: textToSend,
         createdAt: Date.now()
       });
 
-      const chatDocRef = firestore().collection('chats').doc(chatId);
+      const chatDocRef = db.collection('chats').doc(chatId);
       await chatDocRef.set({
         id: chatId,
         partTitle: part?.title || part?.partTitle || 'Spare Part',
         lastMessageText: textToSend,
         lastMessageAt: Date.now(),
-        lastSenderId: user.uid,
-        participants: [user.uid, part?.sellerId || 'seller']
+        lastSenderId: user.uid || user.id,
+        participants: [user.uid || user.id, part?.sellerId || 'seller']
       }, { merge: true });
     } catch (err) {
       console.warn('Error sending message:', err);

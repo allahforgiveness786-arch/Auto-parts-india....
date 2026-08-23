@@ -1,9 +1,9 @@
-import firestore from '@react-native-firebase/firestore';
-import { View, Modal, StyleSheet, TextInput, Button, Text, Alert, ScrollView, TouchableOpacity, Image, KeyboardAvoidingView, Platform, ActivityIndicator } from "react-native";
 import React, { useState, useEffect } from 'react';
+import { View, Modal, StyleSheet, TextInput, Button, Text, Alert, ScrollView, TouchableOpacity, Image, KeyboardAvoidingView, Platform, ActivityIndicator } from "react-native";
 import { Icon } from 'react-native-paper';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { uploadImageToCloudinary } from '../services/cloudinary';
+import { getFirebaseFirestore } from '../services/firebase';
 
 export interface EditListingModalProps {
   visible: boolean;
@@ -77,7 +77,12 @@ export const EditListingModal: React.FC<EditListingModalProps> = ({
         finalImageUrl = await uploadImageToCloudinary(imageUrl, 'spare_parts');
       }
 
-      const listingRef = firestore().collection('spareParts').doc(listing.id);
+      const db = getFirebaseFirestore();
+      if (!db || typeof db.collection !== 'function') {
+        throw new Error('Database is not available. Please try again.');
+      }
+
+      const listingRef = db.collection('spareParts').doc(listing.id);
       await listingRef.update({
         title: title.trim(),
         price: Number(price) || 0,

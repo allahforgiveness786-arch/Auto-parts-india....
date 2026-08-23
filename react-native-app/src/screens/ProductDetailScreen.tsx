@@ -1,15 +1,16 @@
-import firestore from '@react-native-firebase/firestore';
-import { View, ScrollView, StyleSheet, Alert, Linking, Image, Share, TouchableOpacity } from "react-native";
 import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, Alert, Linking, Image, Share, TouchableOpacity } from "react-native";
 import { Text, Button, Card, Avatar, Divider, Chip, IconButton, useTheme } from 'react-native-paper';
 import GMap from '../components/GMap';
 import { EditListingModal } from '../components/EditListingModal';
+import { getFirebaseFirestore, getCurrentUser } from '../services/firebase';
 
-export default function ProductDetailScreen({ route, navigation, user }: any) {
+export default function ProductDetailScreen({ route, navigation, user: initialUser }: any) {
   const { part: initialPart } = route.params || {};
   const [part, setPart] = useState<any>(initialPart);
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const user = initialUser || getCurrentUser();
 
   useEffect(() => {
     if (initialPart?.id) {
@@ -17,14 +18,17 @@ export default function ProductDetailScreen({ route, navigation, user }: any) {
       
       let unsub = () => {};
       try {
-        unsub = firestore().collection('spareParts').doc(initialPart.id).onSnapshot((docSnap) => {
-          const isExisting = typeof (docSnap as any).exists === 'function' ? (docSnap as any).exists() : Boolean(docSnap.exists);
-          if (isExisting) {
-            setPart({ id: docSnap.id, ...docSnap.data() });
-          }
-        }, (err) => {
-          console.warn('[ProductDetailScreen] Realtime sync error:', err);
-        });
+        const db = getFirebaseFirestore();
+        if (db && typeof db.collection === 'function') {
+          unsub = db.collection('spareParts').doc(initialPart.id).onSnapshot((docSnap: any) => {
+            const isExisting = typeof docSnap?.exists === 'function' ? docSnap.exists() : Boolean(docSnap?.exists);
+            if (isExisting) {
+              setPart({ id: docSnap.id, ...docSnap.data() });
+            }
+          }, (err: any) => {
+            console.warn('[ProductDetailScreen] Realtime sync error:', err);
+          });
+        }
       } catch (e) {
         console.warn('[ProductDetailScreen] Realtime sync setup error:', e);
       }
@@ -68,21 +72,24 @@ export default function ProductDetailScreen({ route, navigation, user }: any) {
     const chatId = `${part.id}_${currentUid}_${sellerUid}`;
     
     try {
-      const chatDocRef = firestore().collection('chats').doc(chatId);
-      await chatDocRef.set({
-        id: chatId,
-        partId: part.id,
-        partTitle: part.title || 'Spare Part',
-        partImageUrl: part.imageUrl || '',
-        partPrice: part.price || 0,
-        buyerId: currentUid,
-        buyerName: user.displayName || user.name || user.email || 'Buyer',
-        sellerId: sellerUid,
-        sellerName: part.contactName || part.sellerName || 'Seller',
-        participants: [currentUid, sellerUid],
-        lastMessageText: '',
-        lastMessageAt: Date.now()
-      }, { merge: true });
+      const db = getFirebaseFirestore();
+      if (db && typeof db.collection === 'function') {
+        const chatDocRef = db.collection('chats').doc(chatId);
+        await chatDocRef.set({
+          id: chatId,
+          partId: part.id,
+          partTitle: part.title || 'Spare Part',
+          partImageUrl: part.imageUrl || '',
+          partPrice: part.price || 0,
+          buyerId: currentUid,
+          buyerName: user.displayName || user.name || user.email || 'Buyer',
+          sellerId: sellerUid,
+          sellerName: part.contactName || part.sellerName || 'Seller',
+          participants: [currentUid, sellerUid],
+          lastMessageText: '',
+          lastMessageAt: Date.now()
+        }, { merge: true });
+      }
     } catch (e) {
       console.warn('[ProductDetailScreen] Pre-creating chat doc:', e);
     }
@@ -114,7 +121,10 @@ export default function ProductDetailScreen({ route, navigation, user }: any) {
             try {
               setIsDeleting(true);
               if (part.id) {
-                await firestore().collection('spareParts').doc(part.id).delete();
+                const db = getFirebaseFirestore();
+                if (db && typeof db.collection === 'function') {
+                  await db.collection('spareParts').doc(part.id).delete();
+                }
               }
               Alert.alert('Listing Deleted', 'Your spare part listing has been permanently deleted.');
               navigation.goBack();

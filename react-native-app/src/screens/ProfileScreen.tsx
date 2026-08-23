@@ -1,21 +1,19 @@
 
-import auth from "@react-native-firebase/auth";
-import firestore from '@react-native-firebase/firestore';
-
-import { View, ScrollView, StyleSheet, Alert, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import React, { useState, useEffect } from 'react';
+import { View, ScrollView, StyleSheet, Alert, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { 
   Text, 
   List, 
   Button, 
   Divider, 
   IconButton, 
-  Surface,
-  Badge,
+  Surface, 
+  Badge, 
   useTheme 
 } from 'react-native-paper';
 import { promptImageSourceDialog } from '../services/imagePickerService';
 import { uploadImageToCloudinary } from '../services/cloudinary';
+import { getFirebaseAuth, getFirebaseFirestore, getCurrentUser } from '../services/firebase';
 import { UserProfile } from '../types';
 
 const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250';
@@ -26,92 +24,110 @@ export default function ProfileScreen({ navigation, user: initialUser }: any) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [cacheBuster, setCacheBuster] = useState(Date.now());
 
-  const currentAuthUser = auth().currentUser || initialUser;
+  // Safely obtain current authenticated user
+  const currentAuthUser = initialUser || getCurrentUser();
 
   // 1. Real-time Profile Sync via Firestore onSnapshot
   useEffect(() => {
-    if (!currentAuthUser?.uid) {
+    const activeUid = currentAuthUser?.uid || currentAuthUser?.id;
+    if (!activeUid) {
       setProfileData(null);
       return;
     }
 
-    const userDocRef = firestore().collection('users').doc(currentAuthUser.uid);
-    const unsubscribe = userDocRef.onSnapshot(
-      (docSnap) => {
-        const isExisting = typeof (docSnap as any).exists === 'function' ? (docSnap as any).exists() : Boolean(docSnap.exists);
-        if (isExisting) {
-          const data = docSnap.data();
-          setProfileData({
-            id: docSnap.id,
-            email: data?.email || currentAuthUser.email || '',
-            name: data?.name || data?.displayName || currentAuthUser.displayName || '',
-            displayName: data?.displayName || data?.name || currentAuthUser.displayName || '',
-            photoURL: data?.photoURL || currentAuthUser.photoURL || '',
-            phone: data?.phone || '',
-            role: data?.role || 'buyer',
-            createdAt: data?.createdAt,
-          });
-          setCacheBuster(Date.now());
-        } else {
-          // Initialize user profile fallback if document doesn't exist yet
-          setProfileData({
-            id: currentAuthUser.uid,
-            email: currentAuthUser.email || '',
-            name: currentAuthUser.displayName || '',
-            displayName: currentAuthUser.displayName || '',
-            photoURL: currentAuthUser.photoURL || '',
-            role: 'buyer',
-          });
-        }
-      },
-      (error) => {
-        console.warn('[ProfileScreen] Firestore onSnapshot error:', error);
+    let unsubscribe = () => {};
+    try {
+      const db = getFirebaseFirestore();
+      if (db && typeof db.collection === 'function') {
+        const userDocRef = db.collection('users').doc(activeUid);
+        unsubscribe = userDocRef.onSnapshot(
+          (docSnap: any) => {
+            const isExisting = typeof docSnap?.exists === 'function' ? docSnap.exists() : Boolean(docSnap?.exists);
+            if (isExisting) {
+              const data = docSnap.data();
+              setProfileData({
+                id: docSnap.id,
+                email: data?.email || currentAuthUser.email || '',
+                name: data?.name || data?.displayName || currentAuthUser.displayName || '',
+                displayName: data?.displayName || data?.name || currentAuthUser.displayName || '',
+                photoURL: data?.photoURL || currentAuthUser.photoURL || '',
+                phone: data?.phone || '',
+                role: data?.role || 'buyer',
+                createdAt: data?.createdAt,
+              });
+              setCacheBuster(Date.now());
+            } else {
+              setProfileData({
+                id: activeUid,
+                email: currentAuthUser.email || '',
+                name: currentAuthUser.displayName || '',
+                displayName: currentAuthUser.displayName || '',
+                photoURL: currentAuthUser.photoURL || '',
+                role: 'buyer',
+              });
+            }
+          },
+          (error: any) => {
+            console.warn('[ProfileScreen] Firestore onSnapshot error:', error);
+          }
+        );
       }
-    );
+    } catch (e) {
+      console.warn('[ProfileScreen] Setup snapshot error:', e);
+    }
 
-    return () => unsubscribe();
-  }, [currentAuthUser?.uid]);
+    return () => {
+      try { unsubscribe(); } catch (_) {}
+    };
+  }, [currentAuthUser?.uid, currentAuthUser?.id]);
 
-  // 2. Photo Upload & Sync to Auth + Firestore (Native Camera & Gallery Support)
+  // 2. Photo Upload & Sync to Auth + Firestore
   const handleUpdateProfilePhoto = async () => {
-    if (!currentAuthUser?.uid) {
+    const activeUid = currentAuthUser?.uid || currentAuthUser?.id;
+    if (!activeUid) {
       Alert.alert('Sign In Required', 'Please sign in to update your profile photo.');
       return;
     }
 
     try {
-      // Prompt native choice: Take Photo (Camera) or Choose from Gallery
       const selectedUri = await promptImageSourceDialog(
         'Profile Picture',
         'Choose a photo for your profile'
       );
 
       if (!selectedUri) {
-        return; // User cancelled or closed dialog
+        return;
       }
 
       setUploadingPhoto(true);
 
-      // Upload image to Cloudinary (or fallback storage)
       const uploadedUrl = await uploadImageToCloudinary(selectedUri, 'avatars');
 
-      // Update Firebase Auth Profile
-      if (auth().currentUser) {
-        await auth().currentUser!.updateProfile({
-          photoURL: uploadedUrl,
-        });
+      // Update Firebase Auth Profile if available
+      try {
+        const authInst = getFirebaseAuth();
+        if (authInst?.currentUser && typeof authInst.currentUser.updateProfile === 'function') {
+          await authInst.currentUser.updateProfile({
+            photoURL: uploadedUrl,
+          });
+        }
+      } catch (authErr) {
+        console.warn('[ProfileScreen] Auth updateProfile notice:', authErr);
       }
 
       // Update Firestore user document
-      const userDocRef = firestore().collection('users').doc(currentAuthUser.uid);
-      await 
-        userDocRef.set({
-          photoURL: uploadedUrl,
-        },
-        { merge: true }
-      );
+      try {
+        const db = getFirebaseFirestore();
+        if (db && typeof db.collection === 'function') {
+          const userDocRef = db.collection('users').doc(activeUid);
+          await userDocRef.set({
+            photoURL: uploadedUrl,
+          }, { merge: true });
+        }
+      } catch (dbErr) {
+        console.warn('[ProfileScreen] Firestore set error:', dbErr);
+      }
 
-      // Force immediate cache bust
       setCacheBuster(Date.now());
       Alert.alert('Success', 'Profile photo updated successfully!');
     } catch (err: any) {
@@ -124,8 +140,11 @@ export default function ProfileScreen({ navigation, user: initialUser }: any) {
 
   const handleSignOut = async () => {
     try {
-      await auth().signOut();
-      navigation.navigate('Home');
+      const authInst = getFirebaseAuth();
+      if (authInst && typeof authInst.signOut === 'function') {
+        await authInst.signOut();
+      }
+      navigation.navigate('HomeTab');
     } catch (err: any) {
       console.warn('Sign out error:', err);
       Alert.alert('Error', 'Failed to sign out.');
