@@ -1,5 +1,5 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
-import auth from '@react-native-firebase/auth';
+import auth, { GoogleAuthProvider, firebase } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 
 // Web Client ID from google-services.json (client_type 3)
@@ -33,29 +33,50 @@ export async function signInWithGoogleNative() {
       throw new Error('Could not retrieve Google ID Token. Please check your Google account settings.');
     }
 
-    const googleCredential = auth.GoogleAuthProvider.credential(idToken);
-    const userCredential = await auth().signInWithCredential(googleCredential);
-    const user = userCredential.user;
+    // Build Firebase credential safely
+    let googleCredential: any = null;
+    if (typeof GoogleAuthProvider?.credential === 'function') {
+      googleCredential = GoogleAuthProvider.credential(idToken);
+    } else if (typeof (auth as any)?.GoogleAuthProvider?.credential === 'function') {
+      googleCredential = (auth as any).GoogleAuthProvider.credential(idToken);
+    } else if (typeof (firebase as any)?.auth?.GoogleAuthProvider?.credential === 'function') {
+      googleCredential = (firebase as any).auth.GoogleAuthProvider.credential(idToken);
+    } else {
+      googleCredential = {
+        token: idToken,
+        secret: '',
+        providerId: 'google.com',
+      };
+    }
+
+    const authInstance = typeof auth === 'function' ? auth() : (firebase as any)?.auth?.();
+    const userCredential = await authInstance.signInWithCredential(googleCredential);
+    const user = userCredential?.user || userCredential;
 
     if (user?.uid) {
-      const userDocRef = firestore().collection('users').doc(user.uid);
-      const userDoc = await userDocRef.get();
-      
-      if (!userDoc.exists) {
-        await userDocRef.set({
-          id: user.uid,
-          email: user.email || '',
-          name: user.displayName || 'Auto Parts User',
-          displayName: user.displayName || 'Auto Parts User',
-          photoURL: user.photoURL || '',
-          role: 'buyer',
-          createdAt: Date.now(),
-          lastLoginAt: Date.now(),
-        });
-      } else {
-        await userDocRef.update({
-          lastLoginAt: Date.now(),
-        }).catch(() => {});
+      try {
+        const firestoreInstance = typeof firestore === 'function' ? firestore() : (firebase as any)?.firestore?.();
+        const userDocRef = firestoreInstance.collection('users').doc(user.uid);
+        const userDoc = await userDocRef.get();
+        
+        if (!userDoc.exists) {
+          await userDocRef.set({
+            id: user.uid,
+            email: user.email || '',
+            name: user.displayName || 'Auto Parts User',
+            displayName: user.displayName || 'Auto Parts User',
+            photoURL: user.photoURL || '',
+            role: 'buyer',
+            createdAt: Date.now(),
+            lastLoginAt: Date.now(),
+          });
+        } else {
+          await userDocRef.update({
+            lastLoginAt: Date.now(),
+          }).catch(() => {});
+        }
+      } catch (dbErr) {
+        console.warn('[GoogleAuth] User profile sync warning:', dbErr);
       }
     }
 
