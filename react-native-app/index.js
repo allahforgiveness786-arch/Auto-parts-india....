@@ -3,7 +3,9 @@ import * as RNScreens from 'react-native-screens';
 
 // Polyfill compatibilityFlags for React Navigation v7 compatibility with react-native-screens
 if (RNScreens && !RNScreens.compatibilityFlags) {
-  (RNScreens as any).compatibilityFlags = {};
+  try {
+    RNScreens.compatibilityFlags = {};
+  } catch (_) {}
 }
 try {
   const screensModule = require('react-native-screens');
