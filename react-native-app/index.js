@@ -1,31 +1,55 @@
 import 'react-native-gesture-handler';
+import React from 'react';
 import * as RNScreens from 'react-native-screens';
 
-// Polyfill compatibilityFlags and ScreenStackItem for React Navigation v7 compatibility with react-native-screens
+// Polyfill compatibilityFlags, featureFlags, and sanitize sheetAllowedDetents props for React Native Android
+function sanitizeDetentProps(props) {
+  if (!props || typeof props !== 'object') return props;
+  const sanitized = { ...props };
+  if (sanitized.sheetAllowedDetents !== undefined && typeof sanitized.sheetAllowedDetents !== 'string') {
+    sanitized.sheetAllowedDetents = 'large';
+  }
+  if (sanitized.sheetLargestUndimmedDetent !== undefined && typeof sanitized.sheetLargestUndimmedDetent !== 'string') {
+    sanitized.sheetLargestUndimmedDetent = 'all';
+  }
+  return sanitized;
+}
+
+function patchScreenComponent(Comp) {
+  if (!Comp) return Comp;
+  const Wrapped = React.forwardRef((props, ref) => {
+    return React.createElement(Comp, { ...sanitizeDetentProps(props), ref });
+  });
+  Wrapped.displayName = Comp.displayName || Comp.name || 'PatchedScreen';
+  return Wrapped;
+}
+
 if (RNScreens) {
   try {
     if (!RNScreens.compatibilityFlags) {
       RNScreens.compatibilityFlags = {};
     }
-    if (!RNScreens.ScreenStackItem && RNScreens.Screen) {
+    if (!RNScreens.featureFlags) {
+      RNScreens.featureFlags = {};
+    }
+    if (RNScreens.NativeScreen) {
+      RNScreens.NativeScreen = patchScreenComponent(RNScreens.NativeScreen);
+    }
+    if (RNScreens.InnerScreen) {
+      RNScreens.InnerScreen = patchScreenComponent(RNScreens.InnerScreen);
+    }
+    if (RNScreens.Screen) {
+      RNScreens.Screen = patchScreenComponent(RNScreens.Screen);
+    }
+    if (RNScreens.ScreenStackItem) {
+      RNScreens.ScreenStackItem = patchScreenComponent(RNScreens.ScreenStackItem);
+    } else if (RNScreens.Screen) {
       RNScreens.ScreenStackItem = RNScreens.Screen;
     }
   } catch (_) {}
 }
-try {
-  const screensModule = require('react-native-screens');
-  if (screensModule) {
-    if (!screensModule.compatibilityFlags) {
-      screensModule.compatibilityFlags = {};
-    }
-    if (!screensModule.ScreenStackItem && screensModule.Screen) {
-      screensModule.ScreenStackItem = screensModule.Screen;
-    }
-  }
-} catch (_) {}
 
 import { enableScreens } from 'react-native-screens';
-
 enableScreens(true);
 
 import { AppRegistry, LogBox } from 'react-native';

@@ -135,6 +135,8 @@ export default function AppNavigator({ user }: { user: any }) {
         headerTitleStyle: { fontWeight: 'bold' },
         presentation: 'card',
         animation: 'slide_from_right',
+        sheetAllowedDetents: 'large' as any,
+        sheetLargestUndimmedDetent: 'all' as any,
       }}
     >
       <Stack.Screen 
