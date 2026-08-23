@@ -4,6 +4,7 @@ export const theme = {
   ...MD3LightTheme,
   isV3: true,
   version: 3,
+  fonts: MD3LightTheme?.fonts || {},
   colors: {
     ...(MD3LightTheme?.colors || {}),
     primary: '#1565FF',

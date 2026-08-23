@@ -1,5 +1,5 @@
 import { View, StyleSheet, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert, StatusBar } from "react-native";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "@react-native-firebase/auth";
+import auth from "@react-native-firebase/auth";
 import { getFirestore, doc, setDoc } from "@react-native-firebase/firestore";
 import React, { useState } from 'react';
 import { TextInput, Button, Text } from 'react-native-paper';
@@ -22,7 +22,7 @@ export default function AuthScreen({ navigation }: any) {
     setLoading(true);
     try {
       if (isLogin) {
-        await signInWithEmailAndPassword(getAuth(), email.trim(), password);
+        await auth().signInWithEmailAndPassword(email.trim(), password);
         navigation.reset({
           index: 0,
           routes: [{ name: 'MainTabs' }],
@@ -33,7 +33,7 @@ export default function AuthScreen({ navigation }: any) {
           setLoading(false);
           return;
         }
-        const userCred = await createUserWithEmailAndPassword(getAuth(), email.trim(), password);
+        const userCred = await auth().createUserWithEmailAndPassword(email.trim(), password);
         try {
           await setDoc(doc(getFirestore(), 'users', userCred.user.uid), {
             id: userCred.user.uid,

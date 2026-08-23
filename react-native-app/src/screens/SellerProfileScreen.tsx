@@ -1,5 +1,5 @@
 
-import { getAuth } from "@react-native-firebase/auth";
+import auth from "@react-native-firebase/auth";
 import { getFirestore, collection, query, where, getDocs, getDoc, doc, setDoc, deleteDoc } from "@react-native-firebase/firestore";
 import { Alert } from 'react-native';
 import { Text, Surface, Button, Icon, ActivityIndicator as PaperActivityIndicator } from 'react-native-paper';
@@ -23,7 +23,7 @@ export default function SellerProfileScreen({ route, navigation }: any) {
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
 
-  const currentUser = getAuth().currentUser;
+  const currentUser = auth().currentUser;
   const isOwnProfile = currentUser?.uid === sellerId;
 
   useEffect(() => {

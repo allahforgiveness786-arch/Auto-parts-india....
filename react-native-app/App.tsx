@@ -1,4 +1,4 @@
-import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
+import auth from "@react-native-firebase/auth";
 import { View, Text, StyleSheet, StatusBar } from "react-native";
 import React, { useState, useEffect, useRef } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -42,8 +42,11 @@ class SafeErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundar
       return (
         <View style={{ flex: 1, backgroundColor: '#0B1220', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
           <Text style={{ color: '#ef4444', fontSize: 16, marginBottom: 10, fontWeight: 'bold' }}>App Crashed</Text>
-          <Text style={{ color: '#94A3B8', fontSize: 12, textAlign: 'center' }}>
+          <Text style={{ color: '#94A3B8', fontSize: 12, textAlign: 'center', marginBottom: 10 }}>
             {this.state.error?.message || 'Unknown error'}
+          </Text>
+          <Text style={{ color: '#64748b', fontSize: 10, textAlign: 'left' }}>
+            {this.state.error?.stack || ''}
           </Text>
         </View>
       );
@@ -61,8 +64,8 @@ export default function App() {
     let unsubscribeAuth = () => {};
 
     try {
-      if (getAuth) {
-        unsubscribeAuth = onAuthStateChanged(getAuth(), async (user) => {
+      if (auth) {
+        unsubscribeAuth = auth().onAuthStateChanged(async (user) => {
           try {
             if (cleanupFcm) {
               cleanupFcm();

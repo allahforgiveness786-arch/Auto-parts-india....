@@ -1,5 +1,5 @@
 
-import { getAuth, signOut, updateProfile } from "@react-native-firebase/auth";
+import auth from "@react-native-firebase/auth";
 import { getFirestore, doc, onSnapshot, setDoc } from "@react-native-firebase/firestore";
 
 import { View, ScrollView, StyleSheet, Alert, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
@@ -26,7 +26,7 @@ export default function ProfileScreen({ navigation, user: initialUser }: any) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [cacheBuster, setCacheBuster] = useState(Date.now());
 
-  const currentAuthUser = getAuth().currentUser || initialUser;
+  const currentAuthUser = auth().currentUser || initialUser;
 
   // 1. Real-time Profile Sync via Firestore onSnapshot
   useEffect(() => {
@@ -97,8 +97,8 @@ export default function ProfileScreen({ navigation, user: initialUser }: any) {
       const uploadedUrl = await uploadImageToCloudinary(selectedUri, 'avatars');
 
       // Update Firebase Auth Profile
-      if (getAuth().currentUser) {
-        await updateProfile(getAuth().currentUser!, {
+      if (auth().currentUser) {
+        await auth().currentUser!.updateProfile({
           photoURL: uploadedUrl,
         });
       }
@@ -126,7 +126,7 @@ export default function ProfileScreen({ navigation, user: initialUser }: any) {
 
   const handleSignOut = async () => {
     try {
-      await signOut(getAuth());
+      await auth().signOut();
       navigation.navigate('Home');
     } catch (err: any) {
       console.warn('Sign out error:', err);
