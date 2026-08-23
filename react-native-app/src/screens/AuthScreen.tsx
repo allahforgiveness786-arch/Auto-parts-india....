@@ -1,6 +1,6 @@
 import { View, StyleSheet, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert, StatusBar } from "react-native";
 import auth from "@react-native-firebase/auth";
-import { getFirestore, doc, setDoc } from "@react-native-firebase/firestore";
+import firestore from '@react-native-firebase/firestore';
 import React, { useState } from 'react';
 import { TextInput, Button, Text } from 'react-native-paper';
 import BrandLogo from '../components/BrandLogo';
@@ -35,7 +35,7 @@ export default function AuthScreen({ navigation }: any) {
         }
         const userCred = await auth().createUserWithEmailAndPassword(email.trim(), password);
         try {
-          await setDoc(doc(getFirestore(), 'users', userCred.user.uid), {
+          await firestore().collection('users').doc(userCred.user.uid).set({
             id: userCred.user.uid,
             email: email.trim(),
             name: name.trim(),

@@ -1,4 +1,4 @@
-import { getFirestore, collection, doc, query, orderBy, onSnapshot, addDoc, setDoc } from "@react-native-firebase/firestore";
+import firestore from '@react-native-firebase/firestore';
 import { View, FlatList, KeyboardAvoidingView, Platform, StyleSheet } from "react-native";
 import React, { useState, useEffect } from 'react';
 import { TextInput, IconButton, Card, Avatar, Text, useTheme } from 'react-native-paper';
@@ -11,10 +11,10 @@ export default function ChatRoomScreen({ route, user }: any) {
   useEffect(() => {
     if (!chatId) return;
 
-    const messagesRef = collection(getFirestore(), 'chats', chatId, 'messages');
-    const q = query(messagesRef, orderBy('createdAt', 'asc'));
+    const messagesRef = firestore().collection('chats').doc(chatId).collection('messages');
+    const q = messagesRef.orderBy('createdAt', 'asc');
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribe = q.onSnapshot((snapshot) => {
       const list: any[] = [];
       snapshot.forEach((doc) => {
         list.push({ id: doc.id, ...doc.data() });
@@ -32,16 +32,16 @@ export default function ChatRoomScreen({ route, user }: any) {
     setInputText('');
 
     try {
-      const messagesRef = collection(getFirestore(), 'chats', chatId, 'messages');
-      await addDoc(messagesRef, {
+      const messagesRef = firestore().collection('chats').doc(chatId).collection('messages');
+      await messagesRef.add({
         senderId: user.uid,
         senderName: user.displayName || user.email || 'User',
         text: textToSend,
         createdAt: Date.now()
       });
 
-      const chatDocRef = doc(getFirestore(), 'chats', chatId);
-      await setDoc(chatDocRef, {
+      const chatDocRef = firestore().collection('chats').doc(chatId);
+      await chatDocRef.set({
         id: chatId,
         partTitle: part?.title || part?.partTitle || 'Spare Part',
         lastMessageText: textToSend,

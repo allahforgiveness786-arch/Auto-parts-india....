@@ -1,6 +1,6 @@
 
 import auth from "@react-native-firebase/auth";
-import { getFirestore, doc, onSnapshot, setDoc } from "@react-native-firebase/firestore";
+import firestore from '@react-native-firebase/firestore';
 
 import { View, ScrollView, StyleSheet, Alert, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import React, { useState, useEffect } from 'react';
@@ -35,7 +35,7 @@ export default function ProfileScreen({ navigation, user: initialUser }: any) {
       return;
     }
 
-    const userDocRef = doc(getFirestore(), 'users', currentAuthUser.uid);
+    const userDocRef = firestore().collection('users').doc(currentAuthUser.uid);
     const unsubscribe = onSnapshot(
       userDocRef,
       (docSnap) => {
@@ -104,10 +104,9 @@ export default function ProfileScreen({ navigation, user: initialUser }: any) {
       }
 
       // Update Firestore user document
-      const userDocRef = doc(getFirestore(), 'users', currentAuthUser.uid);
-      await setDoc(
-        userDocRef,
-        {
+      const userDocRef = firestore().collection('users').doc(currentAuthUser.uid);
+      await 
+        userDocRef.set({
           photoURL: uploadedUrl,
         },
         { merge: true }

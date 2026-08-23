@@ -1,4 +1,4 @@
-import { getFirestore, collection, addDoc } from "@react-native-firebase/firestore";
+import firestore from '@react-native-firebase/firestore';
 
 import { Alert, ScrollView, TouchableOpacity, Image, View, Modal, StyleSheet } from 'react-native';
 
@@ -79,7 +79,7 @@ export default function SellPartScreen({ navigation, user }: any) {
         finalImageUrl = await uploadImageToCloudinary(imageUrl, 'spare_parts');
       }
 
-      await addDoc(collection(getFirestore(), 'spareParts'), {
+      await firestore().collection('spareParts').add({
         title,
         carBrand,
         carModel,

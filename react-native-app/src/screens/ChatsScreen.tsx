@@ -1,4 +1,4 @@
-import { getFirestore, collection, query, where, onSnapshot } from "@react-native-firebase/firestore";
+import firestore from '@react-native-firebase/firestore';
 import { View, FlatList, StyleSheet, TouchableOpacity } from "react-native";
 import React, { useState, useEffect } from 'react';
 import { List, Avatar, Text, Badge, Divider, useTheme } from 'react-native-paper';
@@ -11,9 +11,9 @@ export default function ChatsScreen({ navigation, user }: any) {
 
     let unsubscribe = () => {};
     try {
-      const q = query(collection(getFirestore(), 'chats'), where('participants', 'array-contains', user.uid));
+      const q = firestore().collection('chats').where('participants', 'array-contains', user.uid);
 
-      unsubscribe = onSnapshot(q, (snapshot) => {
+      unsubscribe = q.onSnapshot((snapshot) => {
         const list: any[] = [];
         snapshot.forEach((doc) => {
           list.push({ id: doc.id, ...doc.data() });

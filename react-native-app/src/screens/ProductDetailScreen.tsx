@@ -1,4 +1,4 @@
-import { getFirestore, doc, onSnapshot, setDoc, deleteDoc, collection } from "@react-native-firebase/firestore";
+import firestore from '@react-native-firebase/firestore';
 import { View, ScrollView, StyleSheet, Alert, Linking, Image, Share, TouchableOpacity } from "react-native";
 import React, { useState, useEffect } from 'react';
 import { Text, Button, Card, Avatar, Divider, Chip, IconButton, useTheme } from 'react-native-paper';
@@ -17,7 +17,7 @@ export default function ProductDetailScreen({ route, navigation, user }: any) {
       
       let unsub = () => {};
       try {
-        unsub = onSnapshot(doc(getFirestore(), 'spareParts', initialPart.id), (docSnap) => {
+        unsub = firestore().collection('spareParts').doc(initialPart.id).onSnapshot((docSnap) => {
           const isExisting = typeof (docSnap as any).exists === 'function' ? (docSnap as any).exists() : Boolean(docSnap.exists);
           if (isExisting) {
             setPart({ id: docSnap.id, ...docSnap.data() });
@@ -68,8 +68,8 @@ export default function ProductDetailScreen({ route, navigation, user }: any) {
     const chatId = `${part.id}_${currentUid}_${sellerUid}`;
     
     try {
-      const chatDocRef = doc(getFirestore(), 'chats', chatId);
-      await setDoc(chatDocRef, {
+      const chatDocRef = firestore().collection('chats').doc(chatId);
+      await chatDocRef.set({
         id: chatId,
         partId: part.id,
         partTitle: part.title || 'Spare Part',
@@ -114,7 +114,7 @@ export default function ProductDetailScreen({ route, navigation, user }: any) {
             try {
               setIsDeleting(true);
               if (part.id) {
-                await deleteDoc(doc(getFirestore(), 'spareParts', part.id));
+                await deleteDoc(firestore().collection('spareParts').doc(part.id));
               }
               Alert.alert('Listing Deleted', 'Your spare part listing has been permanently deleted.');
               navigation.goBack();
