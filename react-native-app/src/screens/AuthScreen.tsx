@@ -1,66 +1,44 @@
-import { View, StyleSheet, TouchableOpacity, SafeAreaView, KeyboardAvoidingView, Platform, ScrollView, Alert, StatusBar } from "react-native";
-import auth from "@react-native-firebase/auth";
-import firestore from '@react-native-firebase/firestore';
 import React, { useState } from 'react';
-import { TextInput, Button, Text } from 'react-native-paper';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  StatusBar,
+  Alert,
+  ActivityIndicator,
+  Modal,
+} from 'react-native';
+import { Text } from 'react-native-paper';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import BrandLogo from '../components/BrandLogo';
+import { signInWithGoogleNative } from '../services/googleAuth';
 
 export default function AuthScreen({ navigation }: any) {
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(null);
 
-  const handleSubmit = async () => {
-    if (!email || !password) {
-      Alert.alert('Required Fields', 'Please enter email and password');
-      return;
-    }
-
+  const handleGoogleSignIn = async () => {
     setLoading(true);
+    setErrorMessage(null);
     try {
-      if (isLogin) {
-        await auth().signInWithEmailAndPassword(email.trim(), password);
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'MainTabs' }],
-        });
-      } else {
-        if (!name.trim()) {
-          Alert.alert('Required', 'Please enter your full name');
-          setLoading(false);
-          return;
-        }
-        const userCred = await auth().createUserWithEmailAndPassword(email.trim(), password);
-        try {
-          await firestore().collection('users').doc(userCred.user.uid).set({
-            id: userCred.user.uid,
-            email: email.trim(),
-            name: name.trim(),
-            phone: phone.trim(),
-            createdAt: Date.now()
-          });
-        } catch (dbErr) {
-          console.warn('[AuthScreen] Firestore user profile sync error:', dbErr);
-        }
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'MainTabs' }],
-        });
-      }
+      await signInWithGoogleNative();
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'MainTabs' }],
+      });
     } catch (err: any) {
-      const msg = err?.message?.includes('auth/') 
-        ? err.message.split('auth/')[1]?.replace(/-/g, ' ') 
-        : err.message || 'Authentication failed';
-      Alert.alert('Sign In Failed', msg);
+      console.warn('[AuthScreen] Google Sign-In failed:', err);
+      const msg = err?.message || 'Failed to sign in with Google. Please try again.';
+      setErrorMessage(msg);
+      Alert.alert('Google Sign-In', msg);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSkip = () => {
+  const handleSkipGuest = () => {
     navigation.reset({
       index: 0,
       routes: [{ name: 'MainTabs' }],
@@ -68,135 +46,165 @@ export default function AuthScreen({ navigation }: any) {
   };
 
   return (
-    <View style={styles.outerContainer}>
-      <StatusBar barStyle="light-content" backgroundColor="#0B1220" />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#0B192C" />
+      
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* Header Branding */}
         <View style={styles.headerBox}>
-          <BrandLogo size={80} style={styles.logo} />
+          <BrandLogo size={75} style={styles.logo} />
           <Text variant="headlineSmall" style={styles.brandTitle}>
             AUTO PARTS <Text style={styles.accentText}>INDIA</Text>
           </Text>
           <Text variant="bodySmall" style={styles.brandSub}>
             Automotive Spare Parts Marketplace
           </Text>
+          <Text style={styles.tagline}>
+            India's premier automotive marketplace.{"\n"}Buy and sell genuine spare parts across India.
+          </Text>
         </View>
 
+        {/* Main Glass Card */}
         <View style={styles.card}>
-          <Text variant="titleLarge" style={styles.title}>
-            {isLogin ? 'Welcome Back' : 'Create Account'}
+          <Text variant="titleLarge" style={styles.cardTitle}>
+            Sign in to Auto Parts India
           </Text>
-          <Text variant="bodyMedium" style={styles.subtitle}>
-            {isLogin ? 'Sign in to access chats, sell parts & orders' : 'Join India\'s premier spare parts community'}
+          <Text variant="bodyMedium" style={styles.cardSubtitle}>
+            Connect directly with verified mechanics, dealers, and sellers across India.
           </Text>
 
-          {!isLogin && (
-            <>
-              <TextInput
-                label="Full Name"
-                value={name}
-                onChangeText={setName}
-                mode="outlined"
-                style={styles.input}
-                outlineColor="#CBD5E1"
-                activeOutlineColor="#1565FF"
-              />
-              <TextInput
-                label="Phone Number"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                mode="outlined"
-                style={styles.input}
-                outlineColor="#CBD5E1"
-                activeOutlineColor="#1565FF"
-              />
-            </>
-          )}
+          {/* Error Message if any */}
+          {errorMessage ? (
+            <View style={styles.errorBox}>
+              <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#F87171" />
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          ) : null}
 
-          <TextInput
-            label="Email Address"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            mode="outlined"
-            style={styles.input}
-            outlineColor="#CBD5E1"
-            activeOutlineColor="#1565FF"
-          />
-
-          <TextInput
-            label="Password"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            mode="outlined"
-            style={styles.input}
-            outlineColor="#CBD5E1"
-            activeOutlineColor="#1565FF"
-          />
-
-          <Button
-            mode="contained"
-            onPress={handleSubmit}
-            loading={loading}
+          {/* Google Sign-In Button */}
+          <TouchableOpacity
+            style={[styles.googleButton, loading && styles.googleButtonDisabled]}
+            onPress={handleGoogleSignIn}
             disabled={loading}
-            style={styles.button}
-            buttonColor="#1565FF"
-            textColor="#FFFFFF"
+            activeOpacity={0.85}
           >
-            {isLogin ? 'Sign In' : 'Register Account'}
-          </Button>
+            {loading ? (
+              <View style={styles.btnRow}>
+                <ActivityIndicator color="#0F172A" size="small" />
+                <Text style={styles.googleBtnText}>Signing in...</Text>
+              </View>
+            ) : (
+              <View style={styles.btnRow}>
+                <MaterialCommunityIcons name="google" size={22} color="#EA4335" style={styles.googleIcon} />
+                <Text style={styles.googleBtnText}>Continue with Google</Text>
+              </View>
+            )}
+          </TouchableOpacity>
 
-          <Button
-            mode="text"
-            onPress={() => setIsLogin(!isLogin)}
-            style={styles.switchButton}
-            textColor="#1565FF"
-          >
-            {isLogin ? "New user? Create an Account" : "Already have an account? Sign In"}
-          </Button>
+          {/* Feature Highlights / Trust Badges */}
+          <View style={styles.trustBadgesBox}>
+            <View style={styles.badgeRow}>
+              <MaterialCommunityIcons name="shield-check" size={16} color="#38BDF8" />
+              <Text style={styles.badgeText}>Verified Sellers & Buyers</Text>
+            </View>
+            <View style={styles.badgeRow}>
+              <MaterialCommunityIcons name="message-text-outline" size={16} color="#38BDF8" />
+              <Text style={styles.badgeText}>Direct End-to-End Chat</Text>
+            </View>
+            <View style={styles.badgeRow}>
+              <MaterialCommunityIcons name="lock-check-outline" size={16} color="#38BDF8" />
+              <Text style={styles.badgeText}>Secure Google Authentication</Text>
+            </View>
+          </View>
 
+          {/* Divider */}
           <View style={styles.dividerBox}>
             <View style={styles.dividerLine} />
             <Text style={styles.dividerText}>OR</Text>
             <View style={styles.dividerLine} />
           </View>
 
+          {/* Guest Browsing Action */}
           <TouchableOpacity 
-            style={styles.skipBtn} 
-            onPress={handleSkip}
+            style={styles.guestBtn}
+            onPress={handleSkipGuest}
             activeOpacity={0.7}
           >
-            <Text style={styles.skipBtnText}>Explore Marketplace as Guest</Text>
+            <Text style={styles.guestBtnText}>Explore Marketplace as Guest</Text>
+            <MaterialCommunityIcons name="arrow-right" size={16} color="#94A3B8" />
           </TouchableOpacity>
         </View>
+
+        {/* Footer Legal Terms */}
+        <View style={styles.footerLegal}>
+          <Text style={styles.legalNotice}>
+            By continuing, you agree to Auto Parts India's
+          </Text>
+          <View style={styles.legalLinksRow}>
+            <TouchableOpacity onPress={() => setLegalModal('terms')}>
+              <Text style={styles.legalLink}>Terms of Service</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalDot}>•</Text>
+            <TouchableOpacity onPress={() => setLegalModal('privacy')}>
+              <Text style={styles.legalLink}>Privacy Policy</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
+
+      {/* Terms / Privacy Modal */}
+      <Modal
+        visible={legalModal !== null}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setLegalModal(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {legalModal === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
+              </Text>
+              <TouchableOpacity onPress={() => setLegalModal(null)} style={styles.closeBtn}>
+                <MaterialCommunityIcons name="close" size={22} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.modalText}>
+                {legalModal === 'terms' ? (
+                  `Welcome to Auto Parts India.\n\n1. Acceptance of Terms: By accessing or using this app, you agree to be bound by these terms.\n\n2. Marketplace Platform: Auto Parts India connects buyers and sellers of automotive components. We do not manufacture or inspect the parts listed by third-party sellers.\n\n3. User Conduct: Users must list only genuine parts with accurate descriptions and pricing. Fraudulent listings or harassment will result in account termination.\n\n4. Transactions: All financial deals and shipping arrangements are between buyer and seller directly.`
+                ) : (
+                  `Auto Parts India Privacy Policy\n\n1. Information We Collect: We collect your name, email address, and profile details provided via Google Sign-In.\n\n2. How We Use Information: To facilitate communication between buyers and sellers, provide notifications, and maintain account security.\n\n3. Data Security: Your information is stored securely via Firebase Cloud Firestore. We do not sell your personal data to any third parties.`
+                )}
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  outerContainer: {
+  container: {
     flex: 1,
-    backgroundColor: '#0B1220',
+    backgroundColor: '#0B192C',
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
   },
   headerBox: {
     alignItems: 'center',
-    marginBottom: 24,
-    marginTop: 12,
+    marginBottom: 20,
   },
   logo: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   brandTitle: {
     fontWeight: '900',
@@ -208,63 +216,194 @@ const styles = StyleSheet.create({
   },
   brandSub: {
     color: '#94A3B8',
-    marginTop: 4,
+    marginTop: 2,
+    fontWeight: '600',
+  },
+  tagline: {
+    color: '#CBD5E1',
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 8,
+    maxWidth: 280,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: '#0F223D',
+    borderRadius: 24,
     padding: 24,
+    borderWidth: 1,
+    borderColor: '#1E3A5F',
     elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 16,
   },
-  title: {
+  cardTitle: {
     fontWeight: 'bold',
-    color: '#0B1220',
-    marginBottom: 4,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 6,
   },
-  subtitle: {
-    color: '#64748B',
-    marginBottom: 20,
-    fontSize: 14,
+  cardSubtitle: {
+    color: '#94A3B8',
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 22,
   },
-  input: {
-    marginBottom: 12,
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.3)',
+    borderRadius: 12,
+    padding: 10,
+    marginBottom: 16,
+    gap: 8,
+  },
+  errorText: {
+    color: '#FCA5A5',
+    fontSize: 12,
+    flex: 1,
+  },
+  googleButton: {
     backgroundColor: '#FFFFFF',
+    height: 54,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    marginBottom: 20,
   },
-  button: {
-    marginTop: 8,
-    paddingVertical: 6,
-    borderRadius: 10,
+  googleButtonDisabled: {
+    opacity: 0.7,
   },
-  switchButton: {
-    marginTop: 8,
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleIcon: {
+    marginRight: 10,
+  },
+  googleBtnText: {
+    color: '#0F172A',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  trustBadgesBox: {
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.15)',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  badgeText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '500',
   },
   dividerBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 16,
+    marginVertical: 12,
   },
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#1E293B',
   },
   dividerText: {
     marginHorizontal: 12,
-    color: '#94A3B8',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  skipBtn: {
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  skipBtnText: {
     color: '#64748B',
-    fontSize: 14,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  guestBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 6,
+  },
+  guestBtnText: {
+    color: '#94A3B8',
+    fontSize: 13,
     fontWeight: '600',
+  },
+  footerLegal: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  legalNotice: {
+    color: '#64748B',
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  legalLinksRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 6,
+  },
+  legalLink: {
+    color: '#38BDF8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  legalDot: {
+    color: '#475569',
+    fontSize: 11,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#0F223D',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '75%',
+    borderWidth: 1,
+    borderColor: '#1E3A5F',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  modalBody: {
+    marginBottom: 16,
+  },
+  modalText: {
+    color: '#CBD5E1',
+    fontSize: 13,
+    lineHeight: 20,
   },
 });
