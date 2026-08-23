@@ -3,12 +3,14 @@ import { View, ScrollView, StyleSheet, Alert, Linking, Image, Share, TouchableOp
 import { Text, Button, Card, Avatar, Divider, Chip, IconButton, useTheme } from 'react-native-paper';
 import GMap from '../components/GMap';
 import { EditListingModal } from '../components/EditListingModal';
+import RatingModal from '../components/RatingModal';
 import { getFirebaseFirestore, getCurrentUser } from '../services/firebase';
 
 export default function ProductDetailScreen({ route, navigation, user: initialUser }: any) {
   const { part: initialPart } = route.params || {};
   const [part, setPart] = useState<any>(initialPart);
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [ratingModalVisible, setRatingModalVisible] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const user = initialUser || getCurrentUser();
 
@@ -249,29 +251,69 @@ export default function ProductDetailScreen({ route, navigation, user: initialUs
             </Button>
           </View>
         ) : (
-          <View style={styles.actionRow}>
-            <Button 
-              mode="contained" 
-              icon="message" 
-              onPress={handleChat} 
-              style={[styles.actionBtn, { flex: 1, marginRight: 8 }]}
-              buttonColor="#1565FF"
-              textColor="#FFFFFF"
-            >
-              Chat
-            </Button>
-            <Button 
-              mode="outlined" 
-              icon="phone" 
-              onPress={handleCall} 
-              style={[styles.actionBtn, { flex: 1 }]}
-              textColor="#1565FF"
-            >
-              Call Seller
-            </Button>
+          <View style={styles.actionColumn}>
+            <View style={styles.actionRow}>
+              <Button 
+                mode="contained" 
+                icon="message" 
+                onPress={handleChat} 
+                style={[styles.actionBtn, { flex: 1, marginRight: 8 }]}
+                buttonColor="#1565FF"
+                textColor="#FFFFFF"
+              >
+                Chat
+              </Button>
+              <Button 
+                mode="outlined" 
+                icon="phone" 
+                onPress={handleCall} 
+                style={[styles.actionBtn, { flex: 1 }]}
+                textColor="#1565FF"
+              >
+                Call Seller
+              </Button>
+            </View>
+
+            <View style={styles.secondaryActionRow}>
+              <Button
+                mode="contained-tonal"
+                icon="whatsapp"
+                onPress={() => {
+                  const phoneClean = (part.contactPhone || '').replace(/[^0-9]/g, '');
+                  const waUrl = phoneClean 
+                    ? `https://wa.me/91${phoneClean.slice(-10)}?text=Hi, I am interested in your listing: ${encodeURIComponent(part.title)} on Auto Parts India.`
+                    : `https://wa.me/?text=Hi, I am interested in your listing: ${encodeURIComponent(part.title)}`;
+                  Linking.openURL(waUrl).catch(() => Alert.alert('Notice', 'Unable to open WhatsApp'));
+                }}
+                style={{ flex: 1, marginRight: 8, backgroundColor: '#DCFCE7' }}
+                textColor="#15803D"
+              >
+                WhatsApp
+              </Button>
+              <Button
+                mode="outlined"
+                icon="star"
+                onPress={() => setRatingModalVisible(true)}
+                style={{ flex: 1, borderColor: '#F59E0B' }}
+                textColor="#D97706"
+              >
+                Rate Seller
+              </Button>
+            </View>
           </View>
         )}
       </View>
+
+      {/* Rating Modal */}
+      <RatingModal
+        isOpen={ratingModalVisible}
+        onClose={() => setRatingModalVisible(false)}
+        sellerId={part.sellerId || 'seller'}
+        sellerName={part.contactName || part.sellerEmail || 'Auto Seller'}
+        partId={part.id}
+        partTitle={part.title}
+        onSuccess={() => Alert.alert('Success', 'Thank you for your rating!')}
+      />
 
       {/* Edit Listing Modal for Owner */}
       {isOwner && (
@@ -365,10 +407,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     marginVertical: 8,
   },
+  actionColumn: {
+    marginTop: 16,
+    marginBottom: 32,
+    gap: 10,
+  },
   actionRow: {
     flexDirection: 'row',
-    marginTop: 20,
-    marginBottom: 32,
+  },
+  secondaryActionRow: {
+    flexDirection: 'row',
   },
   actionBtn: {
     paddingVertical: 4,

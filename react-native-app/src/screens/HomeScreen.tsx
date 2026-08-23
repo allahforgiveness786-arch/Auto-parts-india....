@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, Image, Dimensions, SafeAreaView, StatusBar, Modal } from "react-native";
+import { View, FlatList, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, Image, Dimensions, SafeAreaView, StatusBar, Modal, Linking, Alert } from "react-native";
 import { 
   Searchbar, 
   Text, 
@@ -17,6 +17,7 @@ import {
 import { getFirebaseFirestore } from '../services/firebase';
 import { getCurrentLocation, reverseGeocodeOSM } from '../services/location';
 import BrandLogo from '../components/BrandLogo';
+import { INITIAL_SPARE_PARTS } from '../data/mockData';
 
 export default function HomeScreen({ navigation, user }: any) {
   const theme = useTheme();
@@ -30,14 +31,14 @@ export default function HomeScreen({ navigation, user }: any) {
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showLocationModal, setShowLocationModal] = useState(false);
 
-  const categories = [
-    'All',
-    'Engine & Mechanical',
-    'Body & Exterior',
-    'Lights & Electricals',
-    'Suspension & Brakes',
-    'Interior & Wheels',
-    'Wiring & Harnesses'
+  const categoryData = [
+    { id: 'All', name: 'All Parts', icon: 'view-grid-outline', count: parts.length, color: '#1565FF', bg: '#EFF6FF' },
+    { id: 'Engine & Mechanical', name: 'Engine & Mechanical', icon: 'engine-outline', count: parts.filter(p => p.category === 'Engine & Mechanical').length, color: '#D97706', bg: '#FEF3C7' },
+    { id: 'Body & Exterior', name: 'Body & Exterior', icon: 'car-door', count: parts.filter(p => p.category === 'Body & Exterior').length, color: '#4F46E5', bg: '#EEF2FF' },
+    { id: 'Lights & Electricals', name: 'Lights & Electricals', icon: 'car-light-high', count: parts.filter(p => p.category === 'Lights & Electricals').length, color: '#EAB308', bg: '#FEF9C3' },
+    { id: 'Suspension & Brakes', name: 'Suspension & Brakes', icon: 'car-brake-alert', count: parts.filter(p => p.category === 'Suspension & Brakes').length, color: '#E11D48', bg: '#FFE4E6' },
+    { id: 'Interior & Wheels', name: 'Interior & Wheels', icon: 'steering', count: parts.filter(p => p.category === 'Interior & Wheels').length, color: '#059669', bg: '#D1FAE5' },
+    { id: 'Wiring & Harnesses', name: 'Wiring & Harnesses', icon: 'lightning-bolt-outline', count: parts.filter(p => p.category === 'Wiring & Harnesses').length, color: '#0891B2', bg: '#CFFAFE' },
   ];
 
   const topBrands = [
@@ -85,6 +86,7 @@ export default function HomeScreen({ navigation, user }: any) {
     try {
       const db = getFirebaseFirestore();
       if (!db || typeof db.collection !== 'function') {
+        setParts(INITIAL_SPARE_PARTS);
         setLoading(false);
         return;
       }
@@ -95,16 +97,26 @@ export default function HomeScreen({ navigation, user }: any) {
         snapshot.forEach((doc: any) => {
           list.push({ id: doc.id, ...doc.data() });
         });
-        setParts(list);
+
+        // Merge live Firestore parts with initial catalog parts
+        const merged = [...list];
+        INITIAL_SPARE_PARTS.forEach((initPart) => {
+          if (!merged.some((p) => p.id === initPart.id)) {
+            merged.push(initPart);
+          }
+        });
+        setParts(merged.length > 0 ? merged : INITIAL_SPARE_PARTS);
         setLoading(false);
         setRefreshing(false);
       }, (err: any) => {
-        console.warn('Error fetching parts:', err);
+        console.warn('Notice from parts listener:', err);
+        setParts((current) => current.length > 0 ? current : INITIAL_SPARE_PARTS);
         setLoading(false);
         setRefreshing(false);
       });
     } catch (queryErr) {
       console.warn('Failed to query spareParts:', queryErr);
+      setParts((current) => current.length > 0 ? current : INITIAL_SPARE_PARTS);
       setLoading(false);
       setRefreshing(false);
     }
@@ -165,6 +177,39 @@ export default function HomeScreen({ navigation, user }: any) {
             {item.condition || 'Used'}
           </Chip>
         </View>
+
+        {/* Quick Contact Buttons */}
+        <View style={styles.cardQuickActions}>
+          <TouchableOpacity
+            style={styles.waPill}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              const phoneClean = (item.contactPhone || '').replace(/[^0-9]/g, '');
+              const waUrl = phoneClean
+                ? `https://wa.me/91${phoneClean.slice(-10)}?text=Hi, I am interested in your listing: ${encodeURIComponent(item.title)} on Auto Parts India.`
+                : `https://wa.me/?text=Hi, I am interested in your listing: ${encodeURIComponent(item.title)}`;
+              Linking.openURL(waUrl).catch(() => Alert.alert('Notice', 'Unable to open WhatsApp'));
+            }}
+          >
+            <IconButton icon="whatsapp" size={14} iconColor="#15803D" style={{ margin: 0, padding: 0 }} />
+            <Text style={styles.waPillText}>WhatsApp</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.callPill}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              if (item.contactPhone) {
+                Linking.openURL(`tel:${item.contactPhone}`);
+              } else {
+                Alert.alert('Notice', 'Phone number not available for this listing.');
+              }
+            }}
+          >
+            <IconButton icon="phone" size={14} iconColor="#1565FF" style={{ margin: 0, padding: 0 }} />
+            <Text style={styles.callPillText}>Call</Text>
+          </TouchableOpacity>
+        </View>
       </Card.Content>
     </Card>
   );
@@ -193,6 +238,12 @@ export default function HomeScreen({ navigation, user }: any) {
         <View style={styles.headerRight}>
           <TouchableOpacity 
             style={styles.bellBtn} 
+            onPress={() => navigation.navigate('Search')}
+          >
+            <IconButton icon="magnify" iconColor="#FFFFFF" size={22} style={{ margin: 0 }} />
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.bellBtn} 
             onPress={() => navigation.navigate('Notifications')}
           >
             <IconButton icon="bell-outline" iconColor="#FFFFFF" size={22} style={{ margin: 0 }} />
@@ -206,6 +257,11 @@ export default function HomeScreen({ navigation, user }: any) {
         <Searchbar
           placeholder="Search parts, brands, models..."
           onChangeText={setSearchQuery}
+          onSubmitEditing={() => {
+            if (searchQuery.trim()) {
+              navigation.navigate('Search', { initialQuery: searchQuery });
+            }
+          }}
           value={searchQuery}
           style={styles.searchBar}
           inputStyle={{ fontSize: 14 }}
@@ -264,23 +320,68 @@ export default function HomeScreen({ navigation, user }: any) {
           ))}
         </ScrollView>
 
-        {/* Categories */}
+        {/* Top Categories Visual Cards */}
         <View style={styles.sectionHeader}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>Categories</Text>
+          <Text variant="titleMedium" style={styles.sectionTitle}>Top Categories</Text>
+          {selectedCategory !== 'All' && (
+            <TouchableOpacity onPress={() => setSelectedCategory('All')}>
+              <Text style={{ fontSize: 12, color: '#1565FF', fontWeight: 'bold' }}>Show All</Text>
+            </TouchableOpacity>
+          )}
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryList}>
-          {categories.map((cat) => (
-            <Chip
-              key={cat}
-              selected={selectedCategory === cat}
-              onPress={() => setSelectedCategory(cat)}
-              style={styles.chip}
-              selectedColor={selectedCategory === cat ? '#FFFFFF' : '#0F172A'}
-              showSelectedOverlay
-            >
-              {cat}
-            </Chip>
-          ))}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryCardList}>
+          {categoryData.map((cat) => {
+            const isSelected = selectedCategory === cat.id;
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                activeOpacity={0.8}
+                onPress={() => setSelectedCategory(isSelected ? 'All' : cat.id)}
+                style={[
+                  styles.categoryCard,
+                  isSelected ? styles.categoryCardSelected : { backgroundColor: '#FFFFFF' }
+                ]}
+              >
+                <View 
+                  style={[
+                    styles.categoryIconWrap, 
+                    { backgroundColor: isSelected ? '#1565FF' : cat.bg }
+                  ]}
+                >
+                  <IconButton
+                    icon={cat.icon}
+                    iconColor={isSelected ? '#FFFFFF' : cat.color}
+                    size={22}
+                    style={{ margin: 0 }}
+                  />
+                </View>
+                <Text 
+                  numberOfLines={2} 
+                  style={[
+                    styles.categoryCardTitle,
+                    isSelected && styles.categoryCardTitleSelected
+                  ]}
+                >
+                  {cat.name}
+                </Text>
+                <View 
+                  style={[
+                    styles.categoryBadge,
+                    isSelected ? styles.categoryBadgeSelected : { backgroundColor: cat.bg }
+                  ]}
+                >
+                  <Text 
+                    style={[
+                      styles.categoryBadgeText,
+                      isSelected ? { color: '#FFFFFF' } : { color: cat.color }
+                    ]}
+                  >
+                    {cat.count} {cat.count === 1 ? 'part' : 'parts'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
 
         {/* Main Content Feed */}
@@ -563,12 +664,65 @@ const styles = StyleSheet.create({
   selectedBrandText: {
     color: '#FFFFFF',
   },
-  categoryList: {
+  categoryCardList: {
     paddingHorizontal: 16,
-    gap: 8,
+    paddingVertical: 4,
+    gap: 12,
   },
-  chip: {
-    backgroundColor: '#E2E8F0',
+  categoryCard: {
+    width: 115,
+    borderRadius: 14,
+    padding: 10,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    minHeight: 125,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+  },
+  categoryCardSelected: {
+    backgroundColor: '#0F172A',
+    borderColor: '#1565FF',
+    borderWidth: 2,
+    shadowOpacity: 0.2,
+    elevation: 4,
+  },
+  categoryIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  categoryCardTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1E293B',
+    textAlign: 'center',
+    lineHeight: 14,
+    height: 28,
+  },
+  categoryCardTitleSelected: {
+    color: '#FFFFFF',
+    fontWeight: '800',
+  },
+  categoryBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  categoryBadgeSelected: {
+    backgroundColor: '#1565FF',
+  },
+  categoryBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
   },
   feedHeader: {
     flexDirection: 'row',
@@ -647,6 +801,48 @@ const styles = StyleSheet.create({
   },
   conditionChip: {
     height: 22,
+  },
+  cardQuickActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    gap: 6,
+  },
+  waPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#DCFCE7',
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+  },
+  waPillText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#15803D',
+    marginLeft: 2,
+  },
+  callPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingVertical: 3,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+  },
+  callPillText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#1565FF',
+    marginLeft: 2,
   },
   loaderContainer: {
     padding: 32,

@@ -28,6 +28,7 @@ import SellerProfileScreen from '../screens/SellerProfileScreen';
 import AdminScreen from '../screens/AdminScreen';
 import SplashScreen from '../screens/SplashScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import SearchScreen from '../screens/SearchScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -224,6 +225,12 @@ export default function AppNavigator({ user }: { user: any }) {
         name="Notifications" 
         component={NotificationsScreen}
         options={{ title: 'Notifications & Announcements' }}
+      />
+
+      <Stack.Screen 
+        name="Search" 
+        component={SearchScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );
