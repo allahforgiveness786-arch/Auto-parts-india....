@@ -11,7 +11,7 @@ export default function SellPartScreen({ navigation, user: initialUser }: any) {
   const [title, setTitle] = useState('');
   const [carBrand, setCarBrand] = useState('');
   const [carModel, setCarModel] = useState('');
-  const [category, setCategory] = useState('Engine Components');
+  const [category, setCategory] = useState('Engine & Mechanical');
   const [condition, setCondition] = useState('Brand New');
   const [price, setPrice] = useState('');
   const [location, setLocation] = useState('Mumbai');
@@ -24,8 +24,12 @@ export default function SellPartScreen({ navigation, user: initialUser }: any) {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   const categories = [
-    'Engine Components', 'Body Parts', 'Electrical & Lights', 
-    'Brakes & Suspension', 'Transmission', 'Interior Accessories', 'Wheels & Tyres'
+    'Engine & Mechanical',
+    'Body & Exterior',
+    'Lights & Electricals',
+    'Suspension & Brakes',
+    'Interior & Wheels',
+    'Wiring & Harnesses'
   ];
 
   const popularBrands = [

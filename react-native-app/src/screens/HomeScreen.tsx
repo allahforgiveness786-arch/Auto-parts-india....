@@ -31,8 +31,13 @@ export default function HomeScreen({ navigation, user }: any) {
   const [showLocationModal, setShowLocationModal] = useState(false);
 
   const categories = [
-    'All', 'Engine Components', 'Body Parts', 'Electrical & Lights', 
-    'Brakes & Suspension', 'Transmission', 'Interior Accessories', 'Wheels & Tyres'
+    'All',
+    'Engine & Mechanical',
+    'Body & Exterior',
+    'Lights & Electricals',
+    'Suspension & Brakes',
+    'Interior & Wheels',
+    'Wiring & Harnesses'
   ];
 
   const topBrands = [
