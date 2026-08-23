@@ -8,8 +8,8 @@ const WEB_CLIENT_ID = '751764116522-gr59kobj3c3i1hsgr5hiumauk5otr5sq.apps.google
 try {
   GoogleSignin.configure({
     webClientId: WEB_CLIENT_ID,
-    offlineAccess: true,
-    forceCodeForRefreshToken: true,
+    offlineAccess: false,
+    scopes: ['profile', 'email'],
   });
 } catch (e) {
   console.warn('[GoogleAuth] GoogleSignin.configure error:', e);
@@ -61,12 +61,15 @@ export async function signInWithGoogleNative() {
 
     return user;
   } catch (error: any) {
-    if (error.code === statusCodes.SIGN_IN_CANCELLED) {
+    const errorStr = `${error?.code || ''} ${error?.message || ''} ${error?.toString() || ''}`;
+    if (error.code === statusCodes.SIGN_IN_CANCELLED || errorStr.includes('12501') || errorStr.includes('SIGN_IN_CANCELLED')) {
       throw new Error('Google Sign-In was cancelled.');
     } else if (error.code === statusCodes.IN_PROGRESS) {
       throw new Error('Google Sign-In is already in progress.');
     } else if (error.code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
       throw new Error('Google Play Services is not available or outdated on this device.');
+    } else if (errorStr.includes('DEVELOPER_ERROR') || errorStr.includes('10')) {
+      throw new Error('DEVELOPER_ERROR (Error 10): Google Sign-In requires your APK SHA-1 fingerprint to be registered in Firebase Console -> Project Settings -> Your Android Apps (com.autopartsindia).');
     } else {
       console.warn('[GoogleAuth] Sign-in error:', error);
       throw error;

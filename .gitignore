@@ -9,3 +9,4 @@ coverage/
 !**/google-services.json
 !*.jar
 !**/gradle-wrapper.jar
+!**/debug.keystore
