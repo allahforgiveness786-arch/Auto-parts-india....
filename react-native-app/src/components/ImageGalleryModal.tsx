@@ -7,6 +7,7 @@ import {
   Image,
   Dimensions,
   FlatList,
+  ScrollView,
   StatusBar,
 } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';

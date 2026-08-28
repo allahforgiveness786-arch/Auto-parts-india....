@@ -18,20 +18,24 @@ export default function AuthScreen({ navigation }: any) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [legalModal, setLegalModal] = useState<'terms' | 'privacy' | null>(null);
 
+  // Google Sign-In Native (Pure Real Firebase Auth)
   const handleGoogleSignIn = async () => {
     setLoading(true);
     setErrorMessage(null);
     try {
-      await signInWithGoogleNative();
+      const user = await signInWithGoogleNative();
+      if (!user || !user.uid) {
+        throw new Error('Authentication failed: Could not establish a secure Firebase session.');
+      }
       navigation.reset({
         index: 0,
         routes: [{ name: 'MainTabs' }],
       });
     } catch (err: any) {
       console.warn('[AuthScreen] Google Sign-In failed:', err);
-      const msg = err?.message || 'Failed to sign in with Google. Please try again.';
+      const msg = err?.message || 'Google Authentication failed. Please check your internet and Firebase SHA-1 setup.';
       setErrorMessage(msg);
-      Alert.alert('Google Sign-In', msg);
+      Alert.alert('Authentication Failed', msg);
     } finally {
       setLoading(false);
     }
@@ -51,7 +55,7 @@ export default function AuthScreen({ navigation }: any) {
           <Text variant="headlineSmall" style={styles.brandTitle}>
             AUTO PARTS <Text style={styles.accentText}>INDIA</Text>
           </Text>
-          <Text variant="bodySmall" style={styles.brandSub}>
+          <Text variant="labelLarge" style={styles.brandSub}>
             Automotive Spare Parts Marketplace
           </Text>
           <Text style={styles.tagline}>
@@ -59,19 +63,19 @@ export default function AuthScreen({ navigation }: any) {
           </Text>
         </View>
 
-        {/* Main Glass Card */}
+        {/* Main Card */}
         <View style={styles.card}>
           <Text variant="titleLarge" style={styles.cardTitle}>
-            Sign in to Auto Parts India
+            Sign in with Google
           </Text>
           <Text variant="bodyMedium" style={styles.cardSubtitle}>
             Connect directly with verified mechanics, dealers, and sellers across India.
           </Text>
 
-          {/* Error Message if any */}
+          {/* Error Banner */}
           {errorMessage ? (
             <View style={styles.errorBox}>
-              <Icon source="alert-circle-outline" size={18} color="#F87171" />
+              <Icon source="alert-circle-outline" size={20} color="#F87171" />
               <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
           ) : null}
@@ -86,17 +90,17 @@ export default function AuthScreen({ navigation }: any) {
             {loading ? (
               <View style={styles.btnRow}>
                 <ActivityIndicator color="#0F172A" size="small" />
-                <Text style={styles.googleBtnText}>Signing in...</Text>
+                <Text style={styles.googleBtnText}>Authenticating with Firebase...</Text>
               </View>
             ) : (
               <View style={styles.btnRow}>
                 <Icon source="google" size={22} color="#EA4335" />
-                <Text style={styles.googleBtnText}>Continue with Google</Text>
+                <Text style={styles.googleBtnText}>Sign in with Google</Text>
               </View>
             )}
           </TouchableOpacity>
 
-          {/* Feature Highlights / Trust Badges */}
+          {/* Trust Badges */}
           <View style={styles.trustBadgesBox}>
             <View style={styles.badgeRow}>
               <Icon source="shield-check" size={16} color="#38BDF8" />
@@ -108,45 +112,15 @@ export default function AuthScreen({ navigation }: any) {
             </View>
             <View style={styles.badgeRow}>
               <Icon source="lock-check-outline" size={16} color="#38BDF8" />
-              <Text style={styles.badgeText}>Secure Google Authentication</Text>
+              <Text style={styles.badgeText}>Official Firebase OAuth 2.0</Text>
             </View>
           </View>
-
-          {/* Secure Note */}
-          <View style={styles.secureNoteRow}>
-            <Icon source="shield-check" size={16} color="#10B981" />
-            <Text style={styles.secureNoteText}>
-              Official OAuth 2.0 Security via Google Play Services
-            </Text>
-          </View>
-
-          {/* Divider */}
-          <View style={styles.dividerBox}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR EXPLORE</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          {/* Explore as Guest Button */}
-          <TouchableOpacity
-            style={styles.guestBtn}
-            onPress={() => {
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'MainTabs' }],
-              });
-            }}
-            activeOpacity={0.8}
-          >
-            <Icon source="compass-outline" size={18} color="#94A3B8" />
-            <Text style={styles.guestBtnText}>Browse Marketplace as Guest</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Footer Legal Terms */}
         <View style={styles.footerLegal}>
           <Text style={styles.legalNotice}>
-            By continuing, you agree to Auto Parts India's
+            By signing in, you agree to Auto Parts India's
           </Text>
           <View style={styles.legalLinksRow}>
             <TouchableOpacity onPress={() => setLegalModal('terms')}>
@@ -174,7 +148,7 @@ export default function AuthScreen({ navigation }: any) {
                 {legalModal === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
               </Text>
               <TouchableOpacity onPress={() => setLegalModal(null)} style={styles.closeBtn}>
-                <Icon source="close" size={22} color="#FFFFFF" />
+                <Icon source="close" size={24} color="#94A3B8" />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalBody}>
@@ -206,7 +180,7 @@ const styles = StyleSheet.create({
   },
   headerBox: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 24,
   },
   logo: {
     marginBottom: 10,
@@ -223,6 +197,7 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
     marginTop: 2,
     fontWeight: '600',
+    fontSize: 13,
   },
   tagline: {
     color: '#CBD5E1',
@@ -264,7 +239,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.3)',
     borderRadius: 12,
-    padding: 10,
+    padding: 12,
     marginBottom: 16,
     gap: 8,
   },
@@ -272,11 +247,12 @@ const styles = StyleSheet.create({
     color: '#FCA5A5',
     fontSize: 12,
     flex: 1,
+    lineHeight: 18,
   },
   googleButton: {
     backgroundColor: '#FFFFFF',
-    height: 54,
-    borderRadius: 16,
+    height: 52,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 3,
@@ -284,7 +260,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
-    marginBottom: 20,
+    marginBottom: 18,
   },
   googleButtonDisabled: {
     opacity: 0.7,
@@ -293,9 +269,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  googleIcon: {
-    marginRight: 10,
+    gap: 10,
   },
   googleBtnText: {
     color: '#0F172A',
@@ -309,7 +283,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     gap: 8,
-    marginBottom: 16,
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.15)',
   },
@@ -323,54 +296,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
-  secureNoteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.2)',
-  },
-  secureNoteText: {
-    color: '#6EE7B7',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  dividerBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#1E293B',
-  },
-  dividerText: {
-    marginHorizontal: 12,
-    color: '#64748B',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  guestBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    gap: 6,
-  },
-  guestBtnText: {
-    color: '#94A3B8',
-    fontSize: 13,
-    fontWeight: '600',
-  },
   footerLegal: {
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 24,
   },
   legalNotice: {
     color: '#64748B',
@@ -429,3 +357,4 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
+

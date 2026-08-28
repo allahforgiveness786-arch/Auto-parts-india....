@@ -18,17 +18,67 @@ export function getApp() {
 
 export function getFirebaseAuth(): any {
   try {
+    let inst: any = null;
     if (typeof authModule === 'function') {
-      return authModule();
+      try { inst = authModule(); } catch (_) {}
     }
-    if (typeof (firebase as any)?.auth === 'function') {
-      return (firebase as any).auth();
+    if (!inst && (authModule as any)?.default && typeof (authModule as any).default === 'function') {
+      try { inst = (authModule as any).default(); } catch (_) {}
     }
-    return authModule || null;
+    if (!inst && typeof (firebase as any)?.auth === 'function') {
+      try { inst = (firebase as any).auth(); } catch (_) {}
+    }
+    if (!inst) {
+      inst = authModule || {};
+    }
+
+    return {
+      ...(typeof inst === 'object' ? inst : {}),
+      get currentUser() {
+        return (inst as any)?.currentUser || cachedAuthUser || null;
+      },
+      signOut: async () => {
+        try {
+          if (inst && typeof inst.signOut === 'function') {
+            await inst.signOut();
+          }
+        } catch (_) {}
+        await setCurrentAuthUser(null);
+      },
+    };
   } catch (err) {
     console.warn('[firebase.ts] getFirebaseAuth fallback:', err);
-    return (firebase as any)?.auth?.() || null;
+    return {
+      get currentUser() {
+        return cachedAuthUser || null;
+      },
+      signOut: async () => {
+        await setCurrentAuthUser(null);
+      },
+    };
   }
+}
+
+let cachedAuthUser: any = null;
+
+// Initialize cached user from AsyncStorage on app load
+AsyncStorage.getItem('@autoparts_current_user').then((val) => {
+  if (val) {
+    try {
+      cachedAuthUser = JSON.parse(val);
+    } catch (_) {}
+  }
+}).catch(() => {});
+
+export async function setCurrentAuthUser(user: any) {
+  cachedAuthUser = user;
+  try {
+    if (user) {
+      await AsyncStorage.setItem('@autoparts_current_user', JSON.stringify(user));
+    } else {
+      await AsyncStorage.removeItem('@autoparts_current_user');
+    }
+  } catch (_) {}
 }
 
 // In-memory collection fallback
@@ -208,9 +258,9 @@ export function getFirebaseFirestore(): any {
     if (typeof firestoreModule === 'function') {
       try {
         if (currentApp) {
-          nativeDb = firestoreModule(currentApp, FIRESTORE_DB_ID);
+          nativeDb = (firestoreModule as any)(currentApp, FIRESTORE_DB_ID);
         } else {
-          nativeDb = firestoreModule();
+          nativeDb = (firestoreModule as any)();
         }
       } catch (_) {
         try {
@@ -267,6 +317,7 @@ export function getCurrentUser(): any {
 export const app = getApp();
 export const auth = getFirebaseAuth();
 export const firestore = getFirebaseFirestore;
+export const getFirestoreInstance = getFirebaseFirestore;
 export default getFirebaseAuth;
 
 

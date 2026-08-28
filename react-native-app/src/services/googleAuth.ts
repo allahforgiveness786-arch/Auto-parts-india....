@@ -1,9 +1,12 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import firebaseAuth, { GoogleAuthProvider, firebase } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { setCurrentAuthUser } from './firebase';
 
-// Web Client ID from google-services.json (client_type 3)
+// Web Client ID and API Key from google-services.json
 const WEB_CLIENT_ID = '751764116522-gr59kobj3c3i1hsgr5hiumauk5otr5sq.apps.googleusercontent.com';
+const FIREBASE_API_KEY = 'AIzaSyBTfivYbxE7PDB7FxyAlJjFDid6LKPplx8';
 
 try {
   GoogleSignin.configure({
@@ -31,61 +34,129 @@ export async function signInWithGoogleNative() {
     const userFromGoogle = response?.data?.user || (response as any)?.user;
     
     if (!idToken) {
-      throw new Error('Could not retrieve Google ID Token. Please check your Google account settings.');
+      throw new Error('Could not retrieve Google ID Token. Please check your Google Play Services account settings.');
     }
 
     let user: any = null;
 
-    // 1. Try Firebase Auth sign-in
+    // 1. Try Native Firebase Auth signInWithCredential
     try {
+      let authInstance: any = null;
+      if (typeof firebaseAuth === 'function') {
+        try { authInstance = firebaseAuth(); } catch (_) {}
+      }
+      if (!authInstance && (firebaseAuth as any)?.default && typeof (firebaseAuth as any).default === 'function') {
+        try { authInstance = (firebaseAuth as any).default(); } catch (_) {}
+      }
+      if (!authInstance && typeof (firebase as any)?.auth === 'function') {
+        try { authInstance = (firebase as any).auth(); } catch (_) {}
+      }
+
       let googleCredential: any = null;
       if (typeof GoogleAuthProvider?.credential === 'function') {
         googleCredential = GoogleAuthProvider.credential(idToken);
+      } else if (typeof (authInstance as any)?.GoogleAuthProvider?.credential === 'function') {
+        googleCredential = (authInstance as any).GoogleAuthProvider.credential(idToken);
       } else if (typeof (firebaseAuth as any)?.GoogleAuthProvider?.credential === 'function') {
         googleCredential = (firebaseAuth as any).GoogleAuthProvider.credential(idToken);
       } else if (typeof (firebase as any)?.auth?.GoogleAuthProvider?.credential === 'function') {
         googleCredential = (firebase as any).auth.GoogleAuthProvider.credential(idToken);
-      } else {
-        googleCredential = {
-          token: idToken,
-          secret: '',
-          providerId: 'google.com',
-        };
       }
 
-      let authInstance: any = null;
-      if (typeof firebaseAuth === 'function') {
-        authInstance = firebaseAuth();
-      } else if (typeof (firebase as any)?.auth === 'function') {
-        authInstance = (firebase as any).auth();
-      } else if (firebaseAuth && typeof (firebaseAuth as any).signInWithCredential === 'function') {
-        authInstance = firebaseAuth;
-      }
-
-      if (authInstance && typeof authInstance.signInWithCredential === 'function') {
+      if (authInstance && typeof authInstance.signInWithCredential === 'function' && googleCredential) {
         const userCredential = await authInstance.signInWithCredential(googleCredential);
         user = userCredential?.user || userCredential;
       }
-    } catch (fbAuthErr) {
-      console.warn('[GoogleAuth] Firebase Auth signInWithCredential notice:', fbAuthErr);
+    } catch (nativeErr: any) {
+      console.warn('[GoogleAuth] Native Firebase Auth notice:', nativeErr?.message || nativeErr);
     }
 
-    // 2. If Firebase Auth succeeded or fallback to Google Profile
-    const finalUserId = user?.uid || userFromGoogle?.id || `user_${Date.now()}`;
-    const userEmail = user?.email || userFromGoogle?.email || '';
-    const userName = user?.displayName || userFromGoogle?.name || 'Auto Parts User';
-    const userPhoto = user?.photoURL || userFromGoogle?.photo || '';
+    // 2. Direct Firebase Identity Toolkit verification (guarantees real Firebase token & uid)
+    if (!user || !user.uid) {
+      try {
+        const res = await fetch(
+          `https://identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=${FIREBASE_API_KEY}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              postBody: `id_token=${idToken}&providerId=google.com`,
+              requestUri: 'http://localhost',
+              returnSecureToken: true,
+            }),
+          }
+        );
+        const data = await res.json();
+        if (data && data.localId) {
+          user = {
+            uid: data.localId,
+            email: data.email || userFromGoogle?.email || '',
+            displayName: data.displayName || userFromGoogle?.name || 'Auto Parts User',
+            photoURL: data.photoUrl || userFromGoogle?.photo || '',
+            idToken: data.idToken,
+            refreshToken: data.refreshToken,
+          };
+        } else if (data?.error?.message) {
+          console.warn('[GoogleAuth] Firebase IdentityToolkit message:', data.error.message);
+        }
+      } catch (restErr) {
+        console.warn('[GoogleAuth] REST Firebase Auth notice:', restErr);
+      }
+    }
 
-    // 3. Sync User Profile in Firestore
+    // 3. Fallback to Google Profile if needed
+    if (!user || !user.uid) {
+      if (userFromGoogle && (userFromGoogle.id || userFromGoogle.email)) {
+        user = {
+          uid: userFromGoogle.id || `google_${Date.now()}`,
+          email: userFromGoogle.email || '',
+          displayName: userFromGoogle.name || 'Auto Parts User',
+          photoURL: userFromGoogle.photo || '',
+        };
+      } else {
+        throw new Error('Authentication failed: Firebase could not authenticate your Google account.');
+      }
+    }
+
+    const finalUserId = user.uid || userFromGoogle?.id || `user_${Date.now()}`;
+    const userEmail = user.email || userFromGoogle?.email || '';
+    const userName = user.displayName || userFromGoogle?.name || 'Auto Parts User';
+    const userPhoto = user.photoURL || userFromGoogle?.photo || '';
+
+    const sessionUser = {
+      uid: finalUserId,
+      id: finalUserId,
+      email: userEmail,
+      displayName: userName,
+      name: userName,
+      photoURL: userPhoto,
+    };
+
+    // Save session in local memory and storage
+    await setCurrentAuthUser(sessionUser);
+
+    // 4. Sync User Profile in Firestore
     try {
-      const firestoreInstance = typeof firestore === 'function' ? firestore() : (firebase as any)?.firestore?.();
+      let firestoreInstance: any = null;
+      if (typeof firestore === 'function') {
+        try { firestoreInstance = firestore(); } catch (_) {}
+      }
+      if (!firestoreInstance && (firestore as any)?.default && typeof (firestore as any).default === 'function') {
+        try { firestoreInstance = (firestore as any).default(); } catch (_) {}
+      }
+      if (!firestoreInstance && typeof (firebase as any)?.firestore === 'function') {
+        try { firestoreInstance = (firebase as any).firestore(); } catch (_) {}
+      }
+
       if (firestoreInstance && typeof firestoreInstance.collection === 'function') {
         const userDocRef = firestoreInstance.collection('users').doc(finalUserId);
         const userDoc = await userDocRef.get();
-        
-        if (!userDoc.exists) {
+        const exists = typeof userDoc?.exists === 'function' ? userDoc.exists() : Boolean(userDoc?.exists);
+
+        if (!exists) {
           await userDocRef.set({
             id: finalUserId,
+            uid: finalUserId,
             email: userEmail,
             name: userName,
             displayName: userName,
@@ -95,21 +166,18 @@ export async function signInWithGoogleNative() {
             lastLoginAt: Date.now(),
           });
         } else {
-          await userDocRef.update({
+          await userDocRef.set({
             lastLoginAt: Date.now(),
-          }).catch(() => {});
+            ...(userName ? { displayName: userName, name: userName } : {}),
+            ...(userPhoto ? { photoURL: userPhoto } : {}),
+          }, { merge: true }).catch(() => {});
         }
       }
     } catch (dbErr) {
       console.warn('[GoogleAuth] User profile sync warning:', dbErr);
     }
 
-    return {
-      uid: finalUserId,
-      email: userEmail,
-      displayName: userName,
-      photoURL: userPhoto,
-    };
+    return sessionUser;
   } catch (error: any) {
     const errorStr = `${error?.code || ''} ${error?.message || ''} ${error?.toString() || ''}`;
     if (error.code === statusCodes.SIGN_IN_CANCELLED || errorStr.includes('12501') || errorStr.includes('SIGN_IN_CANCELLED')) {

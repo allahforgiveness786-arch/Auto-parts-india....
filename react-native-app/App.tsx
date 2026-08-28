@@ -162,5 +162,3 @@ const styles = StyleSheet.create({
     backgroundColor: '#0B1220',
   },
 });
-
-
