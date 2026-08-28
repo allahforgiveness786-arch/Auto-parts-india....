@@ -25,6 +25,7 @@ import {
 import { promptImageSourceDialog } from '../services/imagePickerService';
 import { uploadImageToCloudinary } from '../services/cloudinary';
 import { getFirebaseAuth, getFirebaseFirestore, getCurrentUser } from '../services/firebase';
+import { signOutFromGoogle } from '../services/googleAuth';
 import { UserProfile } from '../types';
 import { EditListingModal } from '../components/EditListingModal';
 import { INITIAL_SPARE_PARTS } from '../data/mockData';
@@ -268,11 +269,19 @@ export default function ProfileScreen({ navigation, route, user: initialUser, in
 
   const handleSignOut = async () => {
     try {
+      await signOutFromGoogle();
       const authInst = getFirebaseAuth();
       if (authInst && typeof authInst.signOut === 'function') {
         await authInst.signOut();
       }
-      navigation.navigate('HomeTab');
+      if (navigation?.reset) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Auth' }],
+        });
+      } else {
+        navigation.navigate('Auth');
+      }
     } catch (err: any) {
       Alert.alert('Error', 'Failed to sign out.');
     }

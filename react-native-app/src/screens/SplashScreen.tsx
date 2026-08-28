@@ -1,9 +1,8 @@
 
-import auth from "@react-native-firebase/auth";
-import { Animated, View, StatusBar, StyleSheet, ActivityIndicator, Text } from 'react-native';
-
 import React, { useEffect, useRef } from 'react';
+import { Animated, View, StatusBar, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import BrandLogo from '../components/BrandLogo';
+import { getCurrentUser } from '../services/firebase';
 
 export default function SplashScreen({ navigation }: any) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -17,7 +16,8 @@ export default function SplashScreen({ navigation }: any) {
 
     const timer = setTimeout(() => {
       try {
-        const targetScreen = auth().currentUser ? 'MainTabs' : 'Auth';
+        const currentUser = getCurrentUser();
+        const targetScreen = currentUser ? 'MainTabs' : 'Auth';
         if (navigation?.reset) {
           navigation.reset({
             index: 0,

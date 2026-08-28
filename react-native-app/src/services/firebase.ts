@@ -16,6 +16,37 @@ export function getApp() {
   }
 }
 
+let cachedAuthUser: any = null;
+const authListeners = new Set<(user: any) => void>();
+
+// Initialize cached user from AsyncStorage on app load
+AsyncStorage.getItem('@autoparts_current_user').then((val) => {
+  if (val) {
+    try {
+      cachedAuthUser = JSON.parse(val);
+      authListeners.forEach((cb) => {
+        try { cb(cachedAuthUser); } catch (_) {}
+      });
+    } catch (_) {}
+  }
+}).catch(() => {});
+
+export async function setCurrentAuthUser(user: any) {
+  cachedAuthUser = user;
+  try {
+    if (user) {
+      await AsyncStorage.setItem('@autoparts_current_user', JSON.stringify(user));
+    } else {
+      await AsyncStorage.removeItem('@autoparts_current_user');
+    }
+  } catch (_) {}
+
+  // Broadcast to all active listeners
+  authListeners.forEach((cb) => {
+    try { cb(cachedAuthUser); } catch (_) {}
+  });
+}
+
 export function getFirebaseAuth(): any {
   try {
     let inst: any = null;
@@ -37,6 +68,41 @@ export function getFirebaseAuth(): any {
       get currentUser() {
         return (inst as any)?.currentUser || cachedAuthUser || null;
       },
+      onAuthStateChanged: (callback: (user: any) => void) => {
+        authListeners.add(callback);
+        // Immediate callback with current value
+        setTimeout(() => {
+          try {
+            callback(cachedAuthUser || (inst as any)?.currentUser || null);
+          } catch (_) {}
+        }, 10);
+
+        let nativeUnsub: any = null;
+        if (inst && typeof inst.onAuthStateChanged === 'function') {
+          try {
+            nativeUnsub = inst.onAuthStateChanged((u: any) => {
+              if (u) {
+                const mappedUser = {
+                  uid: u.uid,
+                  id: u.uid,
+                  email: u.email || '',
+                  displayName: u.displayName || u.email?.split('@')[0] || 'Auto Parts User',
+                  name: u.displayName || u.email?.split('@')[0] || 'Auto Parts User',
+                  photoURL: u.photoURL || '',
+                };
+                setCurrentAuthUser(mappedUser);
+              }
+            });
+          } catch (_) {}
+        }
+
+        return () => {
+          authListeners.delete(callback);
+          if (nativeUnsub) {
+            try { nativeUnsub(); } catch (_) {}
+          }
+        };
+      },
       signOut: async () => {
         try {
           if (inst && typeof inst.signOut === 'function') {
@@ -52,33 +118,18 @@ export function getFirebaseAuth(): any {
       get currentUser() {
         return cachedAuthUser || null;
       },
+      onAuthStateChanged: (callback: (user: any) => void) => {
+        authListeners.add(callback);
+        setTimeout(() => {
+          try { callback(cachedAuthUser); } catch (_) {}
+        }, 10);
+        return () => authListeners.delete(callback);
+      },
       signOut: async () => {
         await setCurrentAuthUser(null);
       },
     };
   }
-}
-
-let cachedAuthUser: any = null;
-
-// Initialize cached user from AsyncStorage on app load
-AsyncStorage.getItem('@autoparts_current_user').then((val) => {
-  if (val) {
-    try {
-      cachedAuthUser = JSON.parse(val);
-    } catch (_) {}
-  }
-}).catch(() => {});
-
-export async function setCurrentAuthUser(user: any) {
-  cachedAuthUser = user;
-  try {
-    if (user) {
-      await AsyncStorage.setItem('@autoparts_current_user', JSON.stringify(user));
-    } else {
-      await AsyncStorage.removeItem('@autoparts_current_user');
-    }
-  } catch (_) {}
 }
 
 // In-memory collection fallback

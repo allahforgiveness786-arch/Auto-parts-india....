@@ -195,3 +195,10 @@ export async function signInWithGoogleNative() {
   }
 }
 
+export async function signOutFromGoogle() {
+  try {
+    await GoogleSignin.signOut();
+  } catch (_) {}
+}
+
+
