@@ -256,8 +256,8 @@ jobs:
       - name: Create Swap File to Prevent Out of Memory
         run: |
           sudo swapoff -a || true
-          sudo rm -f /mnt/swapfile
-          sudo fallocate -l 2G /mnt/swapfile || sudo dd if=/dev/zero of=/mnt/swapfile bs=1M count=2048
+          sudo rm -f /mnt/swapfile || true
+          sudo fallocate -l 4G /mnt/swapfile || sudo dd if=/dev/zero of=/mnt/swapfile bs=1M count=4096
           sudo chmod 600 /mnt/swapfile
           sudo mkswap /mnt/swapfile
           sudo swapon /mnt/swapfile
@@ -276,14 +276,15 @@ jobs:
       - name: Build React Native Android Release APK
         env:
           CI: true
-          REACT_NATIVE_MAX_WORKERS: 2
-          CMAKE_BUILD_PARALLEL_LEVEL: 2
+          REACT_NATIVE_MAX_WORKERS: 1
+          CMAKE_BUILD_PARALLEL_LEVEL: 1
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs=\"-Xmx2560m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC\""
           ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/26.1.10909125
         run: |
           cd react-native-app/android
           chmod +x ./gradlew || true
-          ./gradlew assembleRelease --parallel --build-cache \
-          -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC"
+          ./gradlew assembleRelease --no-daemon --stacktrace \
+            -Dorg.gradle.jvmargs="-Xmx2560m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC"
 
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
