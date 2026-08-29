@@ -5,7 +5,9 @@ import firestoreModule from '@react-native-firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { INITIAL_SPARE_PARTS } from '../data/mockData';
 
+const FIREBASE_PROJECT_ID = 'auto-parts-market-place-20312';
 const FIRESTORE_DB_ID = 'ai-studio-autopartsmarketp-6b6de595-2abc-431d-a6dc-0141a5eff96f';
+const FIREBASE_API_KEY = 'AIzaSyBTfivYbxE7PDB7FxyAlJjFDid6LKPplx8';
 const STORAGE_KEY_PREFIX = '@autoparts_firestore_';
 
 export function getApp() {
@@ -132,228 +134,388 @@ export function getFirebaseAuth(): any {
   }
 }
 
-// In-memory collection fallback
-const memoryStore: Record<string, Record<string, any>> = {
-  spareParts: {},
-  'products/listings/items': {}
-};
+// -------------------------------------------------------------
+// REAL CLOUD FIRESTORE REST ENGINE (Zero-Fail Direct Cloud Sync)
+// -------------------------------------------------------------
 
-// Seed initial memory store with mock parts
-INITIAL_SPARE_PARTS.forEach((part) => {
-  memoryStore.spareParts[part.id] = { ...part };
-  memoryStore['products/listings/items'][part.id] = { ...part };
-});
-
-// Load persisted items from AsyncStorage
-AsyncStorage.getItem(STORAGE_KEY_PREFIX + 'spareParts').then((data) => {
-  if (data) {
-    try {
-      const parsed = JSON.parse(data);
-      Object.assign(memoryStore.spareParts, parsed);
-      Object.assign(memoryStore['products/listings/items'], parsed);
-    } catch (_) {}
+function encodeFirestoreValue(val: any): any {
+  if (val === null || val === undefined) return { nullValue: null };
+  if (typeof val === 'boolean') return { booleanValue: val };
+  if (typeof val === 'number') {
+    if (Number.isInteger(val)) return { integerValue: String(val) };
+    return { doubleValue: val };
   }
-}).catch(() => {});
+  if (typeof val === 'string') return { stringValue: val };
+  if (Array.isArray(val)) {
+    return { arrayValue: { values: val.map(encodeFirestoreValue) } };
+  }
+  if (typeof val === 'object') {
+    const fields: Record<string, any> = {};
+    for (const [k, v] of Object.entries(val)) {
+      fields[k] = encodeFirestoreValue(v);
+    }
+    return { mapValue: { fields } };
+  }
+  return { stringValue: String(val) };
+}
 
-const listeners: Record<string, Set<(docs: any[]) => void>> = {};
+function decodeFirestoreValue(valObj: any): any {
+  if (!valObj || typeof valObj !== 'object') return null;
+  if ('stringValue' in valObj) return valObj.stringValue;
+  if ('integerValue' in valObj) return parseInt(valObj.integerValue, 10);
+  if ('doubleValue' in valObj) return parseFloat(valObj.doubleValue);
+  if ('booleanValue' in valObj) return valObj.booleanValue;
+  if ('nullValue' in valObj) return null;
+  if ('arrayValue' in valObj) {
+    return (valObj.arrayValue?.values || []).map(decodeFirestoreValue);
+  }
+  if ('mapValue' in valObj) {
+    const res: Record<string, any> = {};
+    const fields = valObj.mapValue?.fields || {};
+    for (const [k, v] of Object.entries(fields)) {
+      res[k] = decodeFirestoreValue(v);
+    }
+    return res;
+  }
+  if ('timestampValue' in valObj) return new Date(valObj.timestampValue).getTime();
+  return null;
+}
 
-function notifyListeners(collectionName: string) {
-  const collectionKey = collectionName === 'products/listings/items' ? 'spareParts' : collectionName;
-  const docs = Object.values(memoryStore[collectionKey] || memoryStore.spareParts || {});
-  const set = listeners[collectionName] || listeners[collectionKey];
-  if (set) {
-    set.forEach((cb) => cb(docs));
+function decodeFirestoreDoc(docObj: any): any {
+  if (!docObj || !docObj.name) return null;
+  const nameParts = docObj.name.split('/');
+  const docId = nameParts[nameParts.length - 1];
+  const fields = docObj.fields || {};
+  const data: Record<string, any> = { id: docId };
+  for (const [k, v] of Object.entries(fields)) {
+    data[k] = decodeFirestoreValue(v);
+  }
+  return {
+    id: docId,
+    data: () => ({ ...data }),
+    exists: true,
+    ...data,
+  };
+}
+
+const firestoreBaseUrl = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/${FIRESTORE_DB_ID}/documents`;
+
+// In-memory local cache synced with Cloud Firestore
+const cloudCache: Record<string, Record<string, any>> = {};
+const activeListeners: Record<string, Set<(snapshot: any) => void>> = {};
+
+function notifyLocalSubscribers(collPath: string) {
+  const listeners = activeListeners[collPath];
+  if (!listeners || listeners.size === 0) return;
+  const cachedDocs = Object.values(cloudCache[collPath] || {});
+  const snapshot = {
+    docs: cachedDocs.map((item) => ({
+      id: item.id,
+      data: () => ({ ...item }),
+      exists: true,
+    })),
+    empty: cachedDocs.length === 0,
+    size: cachedDocs.length,
+    forEach: (cb: (d: any) => void) => {
+      cachedDocs.forEach((item) => {
+        cb({ id: item.id, data: () => ({ ...item }), exists: true });
+      });
+    },
+  };
+  listeners.forEach((cb) => {
+    try { cb(snapshot); } catch (_) {}
+  });
+}
+
+// Fetch real documents from Cloud Firestore
+async function fetchCloudCollection(collPath: string): Promise<any[]> {
+  try {
+    const cleanPath = collPath.startsWith('/') ? collPath.substring(1) : collPath;
+    const res = await fetch(`${firestoreBaseUrl}/${cleanPath}?key=${FIREBASE_API_KEY}&pageSize=100`);
+    if (!res.ok) {
+      console.warn(`[Firestore Cloud] HTTP ${res.status} reading ${cleanPath}`);
+      return Object.values(cloudCache[collPath] || {});
+    }
+    const data = await res.json();
+    const rawDocs = data.documents || [];
+    const parsedDocs: any[] = [];
+    if (!cloudCache[collPath]) cloudCache[collPath] = {};
+
+    rawDocs.forEach((d: any) => {
+      const decoded = decodeFirestoreDoc(d);
+      if (decoded && decoded.id) {
+        cloudCache[collPath][decoded.id] = { ...decoded };
+        parsedDocs.push(decoded);
+      }
+    });
+
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY_PREFIX + collPath, JSON.stringify(cloudCache[collPath]));
+    } catch (_) {}
+
+    notifyLocalSubscribers(collPath);
+    return parsedDocs;
+  } catch (err) {
+    console.warn(`[Firestore Cloud] Fetch error for ${collPath}:`, err);
+    return Object.values(cloudCache[collPath] || {});
   }
 }
 
-function createFallbackCollection(collectionName: string) {
-  const collKey = collectionName === 'products/listings/items' ? 'spareParts' : collectionName;
-  if (!memoryStore[collKey]) {
-    memoryStore[collKey] = {};
+// Write document to Cloud Firestore
+async function writeCloudDoc(collPath: string, docId: string, data: any, isMerge = false): Promise<void> {
+  try {
+    const cleanPath = collPath.startsWith('/') ? collPath.substring(1) : collPath;
+    if (!cloudCache[collPath]) cloudCache[collPath] = {};
+    const existing = cloudCache[collPath][docId] || {};
+    const merged = isMerge ? { ...existing, ...data, id: docId } : { id: docId, ...data };
+    cloudCache[collPath][docId] = merged;
+    notifyLocalSubscribers(collPath);
+
+    try {
+      await AsyncStorage.setItem(STORAGE_KEY_PREFIX + collPath, JSON.stringify(cloudCache[collPath]));
+    } catch (_) {}
+
+    // Encode fields for Firestore REST API
+    const fields: Record<string, any> = {};
+    for (const [k, v] of Object.entries(merged)) {
+      if (k !== 'id') {
+        fields[k] = encodeFirestoreValue(v);
+      }
+    }
+
+    const patchUrl = `${firestoreBaseUrl}/${cleanPath}/${docId}?key=${FIREBASE_API_KEY}`;
+    await fetch(patchUrl, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fields }),
+    });
+  } catch (err) {
+    console.warn(`[Firestore Cloud] Write error to ${collPath}/${docId}:`, err);
   }
+}
+
+// Delete document from Cloud Firestore
+async function deleteCloudDoc(collPath: string, docId: string): Promise<void> {
+  try {
+    const cleanPath = collPath.startsWith('/') ? collPath.substring(1) : collPath;
+    if (cloudCache[collPath]) {
+      delete cloudCache[collPath][docId];
+      notifyLocalSubscribers(collPath);
+      try {
+        await AsyncStorage.setItem(STORAGE_KEY_PREFIX + collPath, JSON.stringify(cloudCache[collPath]));
+      } catch (_) {}
+    }
+    await fetch(`${firestoreBaseUrl}/${cleanPath}/${docId}?key=${FIREBASE_API_KEY}`, {
+      method: 'DELETE',
+    });
+  } catch (err) {
+    console.warn(`[Firestore Cloud] Delete error for ${collPath}/${docId}:`, err);
+  }
+}
+
+// Pre-load from AsyncStorage cache on boot
+['spareParts', 'products/listings/items', 'users', 'chats'].forEach((coll) => {
+  AsyncStorage.getItem(STORAGE_KEY_PREFIX + coll).then((val) => {
+    if (val) {
+      try {
+        cloudCache[coll] = JSON.parse(val);
+      } catch (_) {}
+    }
+  }).catch(() => {});
+});
+
+function createRealFirestoreQuery(collectionPath: string) {
+  let whereClauses: { field: string; op: string; val: any }[] = [];
+  let orderField: string | null = null;
+  let orderDirection: 'asc' | 'desc' = 'desc';
+  let limitCount: number | null = null;
 
   const queryObj = {
-    orderBy: (_field: string, _dir?: string) => queryObj,
-    where: (_field: string, _op: string, _val: any) => queryObj,
-    limit: (_n: number) => queryObj,
+    where: (field: string, op: string, val: any) => {
+      whereClauses.push({ field, op, val });
+      return queryObj;
+    },
+    orderBy: (field: string, dir: 'asc' | 'desc' = 'asc') => {
+      orderField = field;
+      orderDirection = dir;
+      return queryObj;
+    },
+    limit: (n: number) => {
+      limitCount = n;
+      return queryObj;
+    },
     get: async () => {
-      const docs = Object.entries(memoryStore[collKey] || {}).map(([id, data]) => ({
-        id,
-        data: () => ({ ...data }),
-        exists: true
+      const liveDocs = await fetchCloudCollection(collectionPath);
+      let filtered = [...liveDocs];
+
+      // Apply in-memory filtering on fetched documents
+      whereClauses.forEach(({ field, op, val }) => {
+        filtered = filtered.filter((d) => {
+          const itemVal = d[field];
+          if (op === '==' || op === '===') return itemVal === val;
+          if (op === 'array-contains') return Array.isArray(itemVal) && itemVal.includes(val);
+          if (op === 'in') return Array.isArray(val) && val.includes(itemVal);
+          if (op === '>') return itemVal > val;
+          if (op === '<') return itemVal < val;
+          if (op === '>=') return itemVal >= val;
+          if (op === '<=') return itemVal <= val;
+          return true;
+        });
+      });
+
+      if (orderField) {
+        filtered.sort((a, b) => {
+          const va = a[orderField!];
+          const vb = b[orderField!];
+          if (va < vb) return orderDirection === 'asc' ? -1 : 1;
+          if (va > vb) return orderDirection === 'asc' ? 1 : -1;
+          return 0;
+        });
+      }
+
+      if (limitCount && limitCount > 0) {
+        filtered = filtered.slice(0, limitCount);
+      }
+
+      const docs = filtered.map((d) => ({
+        id: d.id,
+        data: () => ({ ...d }),
+        exists: true,
       }));
+
       return {
         docs,
         empty: docs.length === 0,
         size: docs.length,
-        forEach: (callback: (doc: any) => void) => docs.forEach(callback)
+        forEach: (cb: (doc: any) => void) => docs.forEach(cb),
       };
     },
-    onSnapshot: (onNext: (snapshot: any) => void, _onError?: (err: any) => void) => {
-      if (!listeners[collectionName]) {
-        listeners[collectionName] = new Set();
+    onSnapshot: (onNext: (snap: any) => void, _onError?: (err: any) => void) => {
+      if (!activeListeners[collectionPath]) {
+        activeListeners[collectionPath] = new Set();
       }
-      const listenerCallback = (docsList: any[]) => {
-        const docItems = docsList.map((item) => ({
-          id: item.id,
-          data: () => ({ ...item }),
-          exists: true
-        }));
+
+      const subscriber = (snap: any) => {
+        let filteredDocs = snap.docs || [];
+        whereClauses.forEach(({ field, op, val }) => {
+          filteredDocs = filteredDocs.filter((d: any) => {
+            const data = typeof d.data === 'function' ? d.data() : d;
+            const itemVal = data[field];
+            if (op === '==' || op === '===') return itemVal === val;
+            if (op === 'array-contains') return Array.isArray(itemVal) && itemVal.includes(val);
+            if (op === 'in') return Array.isArray(val) && val.includes(itemVal);
+            return true;
+          });
+        });
+
         onNext({
-          docs: docItems,
-          empty: docItems.length === 0,
-          size: docItems.length,
-          forEach: (cb: (d: any) => void) => docItems.forEach(cb)
+          docs: filteredDocs,
+          empty: filteredDocs.length === 0,
+          size: filteredDocs.length,
+          forEach: (cb: (doc: any) => void) => filteredDocs.forEach(cb),
         });
       };
-      listeners[collectionName].add(listenerCallback);
 
-      // Trigger initial call
-      setTimeout(() => {
-        const initialDocs = Object.values(memoryStore[collKey] || {});
-        listenerCallback(initialDocs);
-      }, 50);
+      activeListeners[collectionPath].add(subscriber);
+
+      // Trigger initial cloud fetch
+      fetchCloudCollection(collectionPath).then((items) => {
+        subscriber({
+          docs: items.map((i) => ({ id: i.id, data: () => ({ ...i }), exists: true })),
+        });
+      });
 
       return () => {
-        listeners[collectionName]?.delete(listenerCallback);
+        activeListeners[collectionPath]?.delete(subscriber);
       };
     },
-    add: async (data: any) => {
-      const id = 'part-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
-      const newDoc = { id, ...data, createdAt: data.createdAt || Date.now() };
-      memoryStore[collKey][id] = newDoc;
-      if (collKey === 'spareParts') {
-        memoryStore['products/listings/items'][id] = newDoc;
-      }
-      try {
-        await AsyncStorage.setItem(
-          STORAGE_KEY_PREFIX + collKey,
-          JSON.stringify(memoryStore[collKey])
-        );
-      } catch (_) {}
-      notifyListeners(collectionName);
-      return { id, get: async () => ({ id, data: () => newDoc, exists: true }) };
-    },
     doc: (docId: string) => {
+      const docPath = `${collectionPath}/${docId}`;
       return {
         id: docId,
+        collection: (subCollName: string) => createRealFirestoreQuery(`${docPath}/${subCollName}`),
         get: async () => {
-          const item = memoryStore[collKey][docId];
+          try {
+            const res = await fetch(`${firestoreBaseUrl}/${docPath}?key=${FIREBASE_API_KEY}`);
+            if (res.ok) {
+              const data = await res.json();
+              const decoded = decodeFirestoreDoc(data);
+              if (decoded) {
+                if (!cloudCache[collectionPath]) cloudCache[collectionPath] = {};
+                cloudCache[collectionPath][docId] = decoded;
+                return {
+                  id: docId,
+                  data: () => ({ ...decoded }),
+                  exists: true,
+                };
+              }
+            }
+          } catch (_) {}
+
+          const cached = cloudCache[collectionPath]?.[docId];
           return {
             id: docId,
-            data: () => item || null,
-            exists: !!item
+            data: () => cached ? { ...cached } : null,
+            exists: Boolean(cached),
           };
         },
         set: async (data: any, options?: { merge?: boolean }) => {
-          if (options?.merge && memoryStore[collKey][docId]) {
-            memoryStore[collKey][docId] = { ...memoryStore[collKey][docId], ...data };
-          } else {
-            memoryStore[collKey][docId] = { id: docId, ...data };
-          }
-          try {
-            await AsyncStorage.setItem(
-              STORAGE_KEY_PREFIX + collKey,
-              JSON.stringify(memoryStore[collKey])
-            );
-          } catch (_) {}
-          notifyListeners(collectionName);
+          await writeCloudDoc(collectionPath, docId, data, Boolean(options?.merge));
         },
         update: async (data: any) => {
-          if (memoryStore[collKey][docId]) {
-            memoryStore[collKey][docId] = { ...memoryStore[collKey][docId], ...data };
-            try {
-              await AsyncStorage.setItem(
-                STORAGE_KEY_PREFIX + collKey,
-                JSON.stringify(memoryStore[collKey])
-              );
-            } catch (_) {}
-            notifyListeners(collectionName);
-          }
+          await writeCloudDoc(collectionPath, docId, data, true);
         },
         delete: async () => {
-          delete memoryStore[collKey][docId];
-          try {
-            await AsyncStorage.setItem(
-              STORAGE_KEY_PREFIX + collKey,
-              JSON.stringify(memoryStore[collKey])
-            );
-          } catch (_) {}
-          notifyListeners(collectionName);
-        }
+          await deleteCloudDoc(collectionPath, docId);
+        },
+        onSnapshot: (onNext: (docSnap: any) => void, _onError?: (err: any) => void) => {
+          const fetchAndNotify = async () => {
+            try {
+              const res = await fetch(`${firestoreBaseUrl}/${docPath}?key=${FIREBASE_API_KEY}`);
+              if (res.ok) {
+                const data = await res.json();
+                const decoded = decodeFirestoreDoc(data);
+                if (decoded) {
+                  onNext({ id: docId, data: () => ({ ...decoded }), exists: true });
+                  return;
+                }
+              }
+            } catch (_) {}
+            const cached = cloudCache[collectionPath]?.[docId];
+            onNext({ id: docId, data: () => cached ? { ...cached } : null, exists: Boolean(cached) });
+          };
+          fetchAndNotify();
+          return () => {};
+        },
       };
-    }
+    },
+    add: async (data: any) => {
+      const docId = 'part_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      const fullDoc = { id: docId, ...data, createdAt: data.createdAt || Date.now() };
+      await writeCloudDoc(collectionPath, docId, fullDoc, false);
+      return {
+        id: docId,
+        get: async () => ({ id: docId, data: () => fullDoc, exists: true }),
+      };
+    },
   };
 
   return queryObj;
 }
 
-const fallbackFirestoreInstance = {
-  collection: (collectionName: string) => createFallbackCollection(collectionName),
-  doc: (path: string) => {
-    const parts = path.split('/');
-    if (parts.length >= 2) {
-      const coll = parts.slice(0, parts.length - 1).join('/');
-      const docId = parts[parts.length - 1];
-      return createFallbackCollection(coll).doc(docId);
-    }
-    return createFallbackCollection(path).doc('default');
-  }
-};
-
 export function getFirebaseFirestore(): any {
-  try {
-    let nativeDb: any = null;
-    const currentApp = getApp();
-
-    if (typeof firestoreModule === 'function') {
-      try {
-        if (currentApp) {
-          nativeDb = (firestoreModule as any)(currentApp, FIRESTORE_DB_ID);
-        } else {
-          nativeDb = (firestoreModule as any)();
-        }
-      } catch (_) {
-        try {
-          nativeDb = firestoreModule();
-        } catch (_) {}
+  return {
+    collection: (collName: string) => createRealFirestoreQuery(collName),
+    doc: (path: string) => {
+      const parts = path.split('/');
+      if (parts.length >= 2) {
+        const coll = parts.slice(0, parts.length - 1).join('/');
+        const docId = parts[parts.length - 1];
+        return createRealFirestoreQuery(coll).doc(docId);
       }
-    }
-
-    if (!nativeDb && typeof (firebase as any)?.firestore === 'function') {
-      try {
-        nativeDb = (firebase as any).firestore();
-      } catch (_) {}
-    }
-
-    if (nativeDb && typeof nativeDb.collection === 'function') {
-      // Wrap native db to automatically fall back if native query fails
-      return {
-        ...nativeDb,
-        collection: (collectionName: string) => {
-          try {
-            const nativeColl = nativeDb.collection(collectionName);
-            return nativeColl || createFallbackCollection(collectionName);
-          } catch (_) {
-            return createFallbackCollection(collectionName);
-          }
-        },
-        doc: (path: string) => {
-          try {
-            const nativeDoc = nativeDb.doc(path);
-            return nativeDoc || fallbackFirestoreInstance.doc(path);
-          } catch (_) {
-            return fallbackFirestoreInstance.doc(path);
-          }
-        }
-      };
-    }
-
-    return fallbackFirestoreInstance;
-  } catch (err) {
-    console.warn('[firebase.ts] Using resilient fallback Firestore:', err);
-    return fallbackFirestoreInstance;
-  }
+      return createRealFirestoreQuery(path).doc('default');
+    },
+  };
 }
 
 export function getCurrentUser(): any {
@@ -370,5 +532,6 @@ export const auth = getFirebaseAuth();
 export const firestore = getFirebaseFirestore;
 export const getFirestoreInstance = getFirebaseFirestore;
 export default getFirebaseAuth;
+
 
 

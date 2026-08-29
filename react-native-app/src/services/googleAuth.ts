@@ -1,8 +1,7 @@
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import firebaseAuth, { GoogleAuthProvider, firebase } from '@react-native-firebase/auth';
-import firestore from '@react-native-firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { setCurrentAuthUser } from './firebase';
+import { setCurrentAuthUser, getFirebaseFirestore } from './firebase';
 
 // Web Client ID and API Key from google-services.json
 const WEB_CLIENT_ID = '751764116522-gr59kobj3c3i1hsgr5hiumauk5otr5sq.apps.googleusercontent.com';
@@ -137,41 +136,19 @@ export async function signInWithGoogleNative() {
 
     // 4. Sync User Profile in Firestore
     try {
-      let firestoreInstance: any = null;
-      if (typeof firestore === 'function') {
-        try { firestoreInstance = firestore(); } catch (_) {}
-      }
-      if (!firestoreInstance && (firestore as any)?.default && typeof (firestore as any).default === 'function') {
-        try { firestoreInstance = (firestore as any).default(); } catch (_) {}
-      }
-      if (!firestoreInstance && typeof (firebase as any)?.firestore === 'function') {
-        try { firestoreInstance = (firebase as any).firestore(); } catch (_) {}
-      }
-
-      if (firestoreInstance && typeof firestoreInstance.collection === 'function') {
-        const userDocRef = firestoreInstance.collection('users').doc(finalUserId);
-        const userDoc = await userDocRef.get();
-        const exists = typeof userDoc?.exists === 'function' ? userDoc.exists() : Boolean(userDoc?.exists);
-
-        if (!exists) {
-          await userDocRef.set({
-            id: finalUserId,
-            uid: finalUserId,
-            email: userEmail,
-            name: userName,
-            displayName: userName,
-            photoURL: userPhoto,
-            role: 'buyer',
-            createdAt: Date.now(),
-            lastLoginAt: Date.now(),
-          });
-        } else {
-          await userDocRef.set({
-            lastLoginAt: Date.now(),
-            ...(userName ? { displayName: userName, name: userName } : {}),
-            ...(userPhoto ? { photoURL: userPhoto } : {}),
-          }, { merge: true }).catch(() => {});
-        }
+      const db = getFirebaseFirestore();
+      if (db && typeof db.collection === 'function') {
+        const userDocRef = db.collection('users').doc(finalUserId);
+        await userDocRef.set({
+          id: finalUserId,
+          uid: finalUserId,
+          email: userEmail,
+          name: userName,
+          displayName: userName,
+          photoURL: userPhoto,
+          role: 'buyer',
+          lastLoginAt: Date.now(),
+        }, { merge: true });
       }
     } catch (dbErr) {
       console.warn('[GoogleAuth] User profile sync warning:', dbErr);

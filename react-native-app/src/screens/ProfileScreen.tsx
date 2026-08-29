@@ -132,23 +132,23 @@ export default function ProfileScreen({ navigation, route, user: initialUser, in
           });
 
           // User's own listings
-          const own = list.filter((it: any) => it.sellerId === activeUid || it.userId === activeUid);
-          setMyListings(own.length > 0 ? own : INITIAL_SPARE_PARTS.slice(0, 2));
+          const own = list.filter((it: any) => it.sellerId === activeUid || it.userId === activeUid || it.sellerEmail === currentAuthUser?.email);
+          setMyListings(own);
 
-          // Mock/demo saved parts
-          setSavedParts(INITIAL_SPARE_PARTS.slice(2, 5));
+          // Saved parts from real favorites
+          setSavedParts([]);
         }, () => {
-          setMyListings(INITIAL_SPARE_PARTS.slice(0, 2));
-          setSavedParts(INITIAL_SPARE_PARTS.slice(2, 5));
+          setMyListings([]);
+          setSavedParts([]);
         });
 
         return () => unsub?.();
       }
     } catch (_) {
-      setMyListings(INITIAL_SPARE_PARTS.slice(0, 2));
-      setSavedParts(INITIAL_SPARE_PARTS.slice(2, 5));
+      setMyListings([]);
+      setSavedParts([]);
     }
-  }, [activeUid]);
+  }, [activeUid, currentAuthUser?.email]);
 
   // 3. Photo Upload
   const handleUpdateProfilePhoto = async () => {

@@ -1,5 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { View, FlatList, StyleSheet, TouchableOpacity, ScrollView, RefreshControl, Image, Dimensions, SafeAreaView, StatusBar, Modal, Linking, Alert } from "react-native";
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  View, 
+  FlatList, 
+  StyleSheet, 
+  TouchableOpacity, 
+  ScrollView, 
+  RefreshControl, 
+  Image, 
+  Dimensions, 
+  SafeAreaView, 
+  StatusBar, 
+  Modal, 
+  Linking, 
+  Alert,
+  Animated,
+  Easing
+} from "react-native";
 import { 
   Searchbar, 
   Text, 
@@ -24,6 +40,131 @@ import { LanguageSelectorModal } from '../components/LanguageSelectorModal';
 import { UpdateDialogModal } from '../components/UpdateDialogModal';
 import { InAppNotification, InAppNotificationData } from '../components/InAppNotification';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// Animated Card Component with smooth scale & fade-in entrance
+function AnimatedPartCard({ item, index, navigation, styles }: any) {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(24)).current;
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        delay: Math.min(index * 60, 400),
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 450,
+        delay: Math.min(index * 60, 400),
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  const onPressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.96,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const onPressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 4,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
+    <Animated.View
+      style={{
+        opacity: fadeAnim,
+        transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+      }}
+    >
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        onPress={() => navigation.navigate('ProductDetail', { part: item })}
+      >
+        <Card style={styles.card} elevation={2}>
+          <View style={styles.imageContainer}>
+            <Card.Cover 
+              source={{ uri: item.imageUrl || 'https://images.unsplash.com/photo-1486006920555-c77dce18193b?auto=format&fit=crop&q=80&w=400' }} 
+              style={styles.cardImage} 
+            />
+            {item.verified && (
+              <View style={styles.verifiedBadge}>
+                <Text style={styles.verifiedText}>Verified</Text>
+              </View>
+            )}
+          </View>
+          <Card.Content style={styles.cardContent}>
+            <Text variant="titleMedium" numberOfLines={1} style={styles.partTitle}>
+              {item.title}
+            </Text>
+            <Text variant="bodySmall" numberOfLines={1} style={styles.partModel}>
+              {item.carBrand} {item.carModel}
+            </Text>
+            <Text variant="bodySmall" style={styles.locationText}>
+              📍 {item.location || 'India'}
+            </Text>
+            <View style={styles.priceRow}>
+              <Text variant="titleMedium" style={styles.price}>
+                ₹{item.price?.toLocaleString('en-IN')}
+              </Text>
+              <Chip compact style={styles.conditionChip} textStyle={{ fontSize: 10 }}>
+                {item.condition || 'Used'}
+              </Chip>
+            </View>
+
+            {/* Quick Contact Buttons */}
+            <View style={styles.cardQuickActions}>
+              <TouchableOpacity
+                style={styles.waPill}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  const phoneClean = (item.contactPhone || '').replace(/[^0-9]/g, '');
+                  const waUrl = phoneClean
+                    ? `https://wa.me/91${phoneClean.slice(-10)}?text=Hi, I am interested in your listing: ${encodeURIComponent(item.title)} on Auto Parts India.`
+                    : `https://wa.me/?text=Hi, I am interested in your listing: ${encodeURIComponent(item.title)}`;
+                  Linking.openURL(waUrl).catch(() => Alert.alert('Notice', 'Unable to open WhatsApp'));
+                }}
+              >
+                <IconButton icon="whatsapp" size={14} iconColor="#15803D" style={{ margin: 0, padding: 0 }} />
+                <Text style={styles.waPillText}>WhatsApp</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.callPill}
+                onPress={(e) => {
+                  e.stopPropagation?.();
+                  if (item.contactPhone) {
+                    Linking.openURL(`tel:${item.contactPhone}`);
+                  } else {
+                    Alert.alert('Notice', 'Phone number not available for this listing.');
+                  }
+                }}
+              >
+                <IconButton icon="phone" size={14} iconColor="#1565FF" style={{ margin: 0, padding: 0 }} />
+                <Text style={styles.callPillText}>Call</Text>
+              </TouchableOpacity>
+            </View>
+          </Card.Content>
+        </Card>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 export default function HomeScreen({ navigation, user }: any) {
   const { favorites, toggleFavorite } = useFavorites();
   const [firestoreBanners, setFirestoreBanners] = useState<any[]>([]);
@@ -44,6 +185,39 @@ export default function HomeScreen({ navigation, user }: any) {
   const [inAppNotification, setInAppNotification] = useState<InAppNotificationData | null>(null);
   const [showUpdateDialog, setShowUpdateDialog] = useState(false);
   const [updateConfig, setUpdateConfig] = useState<any>(null);
+
+  // Entrance Animations for sections
+  const headerFade = useRef(new Animated.Value(0)).current;
+  const searchSlide = useRef(new Animated.Value(-15)).current;
+  const bannersFade = useRef(new Animated.Value(0)).current;
+  const fabScale = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.stagger(100, [
+      Animated.timing(headerFade, {
+        toValue: 1,
+        duration: 350,
+        useNativeDriver: true,
+      }),
+      Animated.timing(searchSlide, {
+        toValue: 0,
+        duration: 400,
+        easing: Easing.out(Easing.back(1.5)),
+        useNativeDriver: true,
+      }),
+      Animated.timing(bannersFade, {
+        toValue: 1,
+        duration: 450,
+        useNativeDriver: true,
+      }),
+      Animated.spring(fabScale, {
+        toValue: 1,
+        friction: 5,
+        tension: 50,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   const displayCategories = taxonomyCategories.length > 0 
     ? ['All', ...taxonomyCategories].map(cat => ({ id: cat, name: cat, icon: 'tag-outline', count: parts.filter(p => p.category === cat).length, color: '#1565FF', bg: '#EFF6FF' })) 
@@ -97,10 +271,6 @@ export default function HomeScreen({ navigation, user }: any) {
   ];
 
   useEffect(() => {
-    if (false) {
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     let unsubscribe = () => {};
     try {
@@ -118,14 +288,8 @@ export default function HomeScreen({ navigation, user }: any) {
           list.push({ id: doc.id, ...doc.data() });
         });
 
-        // Merge live Firestore parts with initial catalog parts
-        const merged = [...list];
-        INITIAL_SPARE_PARTS.forEach((initPart) => {
-          if (!merged.some((p) => p.id === initPart.id)) {
-            merged.push(initPart);
-          }
-        });
-        setParts(merged.length > 0 ? merged : INITIAL_SPARE_PARTS);
+        // Use real Firestore listings, or initial catalog if database is fresh
+        setParts(list.length > 0 ? list : INITIAL_SPARE_PARTS);
         setLoading(false);
         setRefreshing(false);
       }, (err: any) => {
@@ -141,46 +305,8 @@ export default function HomeScreen({ navigation, user }: any) {
       setRefreshing(false);
     }
 
-    // Check version config
-    try {
-      const db = getFirebaseFirestore();
-      db.collection('app_config').doc('version').get().then((doc: any) => {
-        if (doc.exists) {
-          const data = doc.data();
-          if (data && data.latestVersion && data.latestVersion > '2.4.0') {
-            setUpdateConfig(data);
-            setShowUpdateDialog(true);
-          }
-        } else {
-          // Simulation for preview environments
-          setTimeout(() => {
-            setUpdateConfig({
-              latestVersion: '2.5.0',
-              minimumSupportedVersion: '2.0.0',
-              forceUpdate: false,
-              releaseNotes: '• Trilingual support added\n• Taxonomy CMS\n• Performance fixes',
-              releaseDate: 'Oct 15, 2026',
-            });
-            setShowUpdateDialog(true);
-          }, 4000);
-        }
-      });
-    } catch (e) {}
-
-    // Simulate an incoming notification for demo purposes
-    const timer = setTimeout(() => {
-      setInAppNotification({
-        id: 'mock-1',
-        senderName: 'Ravi Kumar',
-        text: 'Is the swift bumper still available? I can pick it up today.',
-        partTitle: 'Swift Dzire Front Bumper',
-        partPrice: 2500,
-      });
-    }, 8000);
-
     return () => {
       try { unsubscribe(); } catch (_) {}
-      clearTimeout(timer);
     };
   }, []);
 
@@ -277,7 +403,7 @@ export default function HomeScreen({ navigation, user }: any) {
       <StatusBar barStyle="light-content" backgroundColor="#0B1220" />
       
       {/* Native Header */}
-      <View style={styles.header}>
+      <Animated.View style={[styles.header, { opacity: headerFade }]}>
         <View style={styles.headerLeft}>
           <BrandLogo size={38} style={styles.logoImage} />
           <View>
@@ -314,10 +440,10 @@ export default function HomeScreen({ navigation, user }: any) {
             <Badge size={8} style={styles.badge} />
           </TouchableOpacity>
         </View>
-      </View>
+      </Animated.View>
 
-      {/* Search Bar & Filter Button */}
-      <View style={styles.searchContainer}>
+      {/* Search Bar & Filter Button with Slide Animation */}
+      <Animated.View style={[styles.searchContainer, { transform: [{ translateY: searchSlide }] }]}>
         <Searchbar
           placeholder="Search parts, brands, models..."
           onChangeText={setSearchQuery}
@@ -337,26 +463,28 @@ export default function HomeScreen({ navigation, user }: any) {
         >
           <IconButton icon="tune-variant" iconColor="#FFFFFF" size={20} style={{ margin: 0 }} />
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Promotional Banner Carousel */}
-        <ScrollView 
-          horizontal 
-          pagingEnabled 
-          showsHorizontalScrollIndicator={false} 
-          style={styles.bannerContainer}
-        >
-          {banners.map((b) => (
-            <Surface key={b.id} style={[styles.bannerCard, { backgroundColor: b.color }]} elevation={2}>
-              <View style={[styles.bannerTag, { backgroundColor: b.accentColor }]}>
-                <Text style={styles.bannerTagText}>{b.tag}</Text>
-              </View>
-              <Text variant="titleMedium" style={styles.bannerTitle}>{b.title}</Text>
-              <Text variant="bodySmall" style={styles.bannerSubtitle}>{b.subtitle}</Text>
-            </Surface>
-          ))}
-        </ScrollView>
+        <Animated.View style={{ opacity: bannersFade }}>
+          <ScrollView 
+            horizontal 
+            pagingEnabled 
+            showsHorizontalScrollIndicator={false} 
+            style={styles.bannerContainer}
+          >
+            {banners.map((b) => (
+              <Surface key={b.id} style={[styles.bannerCard, { backgroundColor: b.color }]} elevation={2}>
+                <View style={[styles.bannerTag, { backgroundColor: b.accentColor }]}>
+                  <Text style={styles.bannerTagText}>{b.tag}</Text>
+                </View>
+                <Text variant="titleMedium" style={styles.bannerTitle}>{b.title}</Text>
+                <Text variant="bodySmall" style={styles.bannerSubtitle}>{b.subtitle}</Text>
+              </Surface>
+            ))}
+          </ScrollView>
+        </Animated.View>
 
         {/* Top Car Brands */}
         <View style={styles.sectionHeader}>
@@ -485,29 +613,36 @@ export default function HomeScreen({ navigation, user }: any) {
           </View>
         ) : (
           <View style={styles.partsGrid}>
-            {filteredParts.map((item) => (
+            {filteredParts.map((item, idx) => (
               <View key={item.id} style={styles.gridItem}>
-                {renderPartItem({ item })}
+                <AnimatedPartCard 
+                  item={item} 
+                  index={idx} 
+                  navigation={navigation} 
+                  styles={styles} 
+                />
               </View>
             ))}
           </View>
         )}
       </ScrollView>
 
-      {/* Floating Action Button for Sellers */}
-      <FAB
-        icon="plus"
-        label="Sell Part"
-        style={styles.fab}
-        color="#FFFFFF"
-        onPress={() => {
-          if (!user) {
-            navigation.navigate('Auth');
-          } else {
-            navigation.navigate('SellPart');
-          }
-        }}
-      />
+      {/* Floating Action Button for Sellers with Animated Bounce */}
+      <Animated.View style={[styles.fabContainer, { transform: [{ scale: fabScale }] }]}>
+        <FAB
+          icon="plus"
+          label="Sell Part"
+          style={styles.fab}
+          color="#FFFFFF"
+          onPress={() => {
+            if (!user) {
+              navigation.navigate('Auth');
+            } else {
+              navigation.navigate('SellPart');
+            }
+          }}
+        />
+      </Animated.View>
 
       {/* Location Selector Modal */}
       <Modal visible={showLocationModal} animationType="slide" transparent>
@@ -942,11 +1077,12 @@ const styles = StyleSheet.create({
     padding: 32,
     alignItems: 'center',
   },
-  fab: {
+  fabContainer: {
     position: 'absolute',
-    margin: 16,
-    right: 0,
-    bottom: 0,
+    right: 16,
+    bottom: 16,
+  },
+  fab: {
     backgroundColor: '#1565FF',
   },
   modalOverlay: {

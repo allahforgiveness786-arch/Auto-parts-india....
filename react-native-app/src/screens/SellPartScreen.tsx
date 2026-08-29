@@ -134,7 +134,9 @@ export default function SellPartScreen({ navigation, user: initialUser }: any) {
       const newPartData = {
         title,
         brand: carBrand,
+        carBrand: carBrand,
         model: carModel,
+        carModel: carModel,
         category,
         condition,
         price: Number(cleanPrice),

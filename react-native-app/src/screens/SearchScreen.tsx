@@ -87,20 +87,14 @@ export default function SearchScreen({ navigation, route, user }: any) {
           snapshot.forEach((doc: any) => {
             list.push({ id: doc.id, ...doc.data() });
           });
-          const merged = [...list];
-          INITIAL_SPARE_PARTS.forEach((p) => {
-            if (!merged.some((m) => m.id === p.id)) {
-              merged.push(p);
-            }
-          });
-          setParts(merged);
+          setParts(list.length > 0 ? list : INITIAL_SPARE_PARTS);
         }, () => {
-          setParts(INITIAL_SPARE_PARTS);
+          setParts((current) => current.length > 0 ? current : INITIAL_SPARE_PARTS);
         });
         return () => unsub?.();
       }
     } catch (_) {
-      setParts(INITIAL_SPARE_PARTS);
+      setParts((current) => current.length > 0 ? current : INITIAL_SPARE_PARTS);
     }
   }, []);
 
