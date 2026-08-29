@@ -70,7 +70,7 @@ export async function signInWithGoogleNative() {
       console.warn('[GoogleAuth] Native Firebase Auth notice:', nativeErr?.message || nativeErr);
     }
 
-    // 2. Direct Firebase Identity Toolkit verification (guarantees real Firebase token & uid)
+    // 2. Direct Firebase Identity Toolkit verification (guarantees real Firebase token & uid from Google Cloud)
     if (!user || !user.uid) {
       try {
         const res = await fetch(
@@ -96,28 +96,25 @@ export async function signInWithGoogleNative() {
             refreshToken: data.refreshToken,
           };
         } else if (data?.error?.message) {
-          console.warn('[GoogleAuth] Firebase IdentityToolkit message:', data.error.message);
+          console.error('[GoogleAuth] Firebase IdentityToolkit Error:', data.error.message);
+          throw new Error(`Firebase Server Auth Error: ${data.error.message}`);
         }
-      } catch (restErr) {
-        console.warn('[GoogleAuth] REST Firebase Auth notice:', restErr);
+      } catch (restErr: any) {
+        console.error('[GoogleAuth] REST Firebase Auth Error:', restErr);
+        if (restErr?.message?.includes('Firebase Server Auth Error')) {
+          throw restErr;
+        }
       }
     }
 
-    // 3. Fallback to Google Profile if needed
+    // Strict Check: No dummy fallback user allowed. Real Firebase UID is strictly mandatory.
     if (!user || !user.uid) {
-      if (userFromGoogle && (userFromGoogle.id || userFromGoogle.email)) {
-        user = {
-          uid: userFromGoogle.id || `google_${Date.now()}`,
-          email: userFromGoogle.email || '',
-          displayName: userFromGoogle.name || 'Auto Parts User',
-          photoURL: userFromGoogle.photo || '',
-        };
-      } else {
-        throw new Error('Authentication failed: Firebase could not authenticate your Google account.');
-      }
+      throw new Error(
+        'Real Firebase Authentication Failed: Google token could not be verified by Firebase Cloud Auth. Please ensure your APK SHA-1 / SHA-256 fingerprint is registered in Firebase Console (Project: auto-parts-market-place-20312).'
+      );
     }
 
-    const finalUserId = user.uid || userFromGoogle?.id || `user_${Date.now()}`;
+    const finalUserId = user.uid;
     const userEmail = user.email || userFromGoogle?.email || '';
     const userName = user.displayName || userFromGoogle?.name || 'Auto Parts User';
     const userPhoto = user.photoURL || userFromGoogle?.photo || '';
