@@ -39,6 +39,7 @@ export async function signInWithGoogleNative() {
     let user: any = null;
 
     // 1. Try Native Firebase Auth signInWithCredential
+    let nativeAuthError: any = null;
     try {
       let authInstance: any = null;
       if (typeof firebaseAuth === 'function') {
@@ -67,10 +68,12 @@ export async function signInWithGoogleNative() {
         user = userCredential?.user || userCredential;
       }
     } catch (nativeErr: any) {
-      console.warn('[GoogleAuth] Native Firebase Auth notice:', nativeErr?.message || nativeErr);
+      nativeAuthError = nativeErr;
+      console.error('[GoogleAuth] Native Firebase Auth error:', nativeErr);
     }
 
-    // 2. Direct Firebase Identity Toolkit verification (guarantees real Firebase token & uid from Google Cloud)
+    // 2. Direct Firebase Identity Toolkit verification (Google Cloud Auth Server Verification)
+    let restAuthError: any = null;
     if (!user || !user.uid) {
       try {
         const res = await fetch(
@@ -96,21 +99,24 @@ export async function signInWithGoogleNative() {
             refreshToken: data.refreshToken,
           };
         } else if (data?.error?.message) {
-          console.error('[GoogleAuth] Firebase IdentityToolkit Error:', data.error.message);
-          throw new Error(`Firebase Server Auth Error: ${data.error.message}`);
+          restAuthError = new Error(`Firebase Server Auth Error: ${data.error.message}`);
+          console.error('[GoogleAuth] Firebase IdentityToolkit Server Error:', data.error.message);
         }
       } catch (restErr: any) {
-        console.error('[GoogleAuth] REST Firebase Auth Error:', restErr);
-        if (restErr?.message?.includes('Firebase Server Auth Error')) {
-          throw restErr;
-        }
+        restAuthError = restErr;
+        console.error('[GoogleAuth] REST Firebase Auth Request Failed:', restErr);
       }
     }
 
-    // Strict Check: No dummy fallback user allowed. Real Firebase UID is strictly mandatory.
+    // STRICT MANDATORY GUARD:
+    // If user is not authenticated by either Native Firebase or IdentityToolkit, FAIL IMMEDIATELY.
     if (!user || !user.uid) {
+      const specificError = restAuthError?.message || nativeAuthError?.message;
+      if (specificError) {
+        throw new Error(`Authentication Failed: ${specificError}`);
+      }
       throw new Error(
-        'Real Firebase Authentication Failed: Google token could not be verified by Firebase Cloud Auth. Please ensure your APK SHA-1 / SHA-256 fingerprint is registered in Firebase Console (Project: auto-parts-market-place-20312).'
+        'Authentication Failed: Firebase Cloud Server rejected the Google session. Please verify your APK SHA-1 fingerprint in Firebase Console.'
       );
     }
 

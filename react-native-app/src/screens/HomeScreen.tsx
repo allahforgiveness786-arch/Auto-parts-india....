@@ -220,16 +220,103 @@ export default function HomeScreen({ navigation, user }: any) {
   }, []);
 
   const displayCategories = taxonomyCategories.length > 0 
-    ? ['All', ...taxonomyCategories].map(cat => ({ id: cat, name: cat, icon: 'tag-outline', count: parts.filter(p => p.category === cat).length, color: '#1565FF', bg: '#EFF6FF' })) 
+    ? ['All', ...taxonomyCategories].map(cat => ({ 
+        id: cat, 
+        name: cat, 
+        tag: 'Auto',
+        subtext: 'Verified Parts',
+        icon: 'tag-outline', 
+        count: parts.filter(p => p.category === cat).length, 
+        color: '#1565FF', 
+        bg: '#EFF6FF',
+        border: '#DBEAFE',
+        accentColor: '#1D4ED8'
+      })) 
     : [
-
-    { id: 'All', name: 'All Parts', icon: 'view-grid-outline', count: parts.length, color: '#1565FF', bg: '#EFF6FF' },
-    { id: 'Engine & Mechanical', name: 'Engine & Mechanical', icon: 'engine-outline', count: parts.filter(p => p.category === 'Engine & Mechanical').length, color: '#D97706', bg: '#FEF3C7' },
-    { id: 'Body & Exterior', name: 'Body & Exterior', icon: 'car-door', count: parts.filter(p => p.category === 'Body & Exterior').length, color: '#4F46E5', bg: '#EEF2FF' },
-    { id: 'Lights & Electricals', name: 'Lights & Electricals', icon: 'car-light-high', count: parts.filter(p => p.category === 'Lights & Electricals').length, color: '#EAB308', bg: '#FEF9C3' },
-    { id: 'Suspension & Brakes', name: 'Suspension & Brakes', icon: 'car-brake-alert', count: parts.filter(p => p.category === 'Suspension & Brakes').length, color: '#E11D48', bg: '#FFE4E6' },
-    { id: 'Interior & Wheels', name: 'Interior & Wheels', icon: 'steering', count: parts.filter(p => p.category === 'Interior & Wheels').length, color: '#059669', bg: '#D1FAE5' },
-    { id: 'Wiring & Harnesses', name: 'Wiring & Harnesses', icon: 'lightning-bolt-outline', count: parts.filter(p => p.category === 'Wiring & Harnesses').length, color: '#0891B2', bg: '#CFFAFE' },
+    { 
+      id: 'All', 
+      name: 'All Parts', 
+      tag: 'Catalog',
+      subtext: 'Browse everything', 
+      icon: 'view-grid-plus', 
+      count: parts.length, 
+      color: '#2563EB', 
+      bg: '#EFF6FF', 
+      border: '#BFDBFE',
+      accentColor: '#1D4ED8'
+    },
+    { 
+      id: 'Engine & Mechanical', 
+      name: 'Engine & Mechanical', 
+      tag: 'Core Power',
+      subtext: 'Pistons, Turbo, Block', 
+      icon: 'engine', 
+      count: parts.filter(p => p.category === 'Engine & Mechanical').length, 
+      color: '#D97706', 
+      bg: '#FFFBEB', 
+      border: '#FDE68A',
+      accentColor: '#B45309'
+    },
+    { 
+      id: 'Body & Exterior', 
+      name: 'Body & Exterior', 
+      tag: 'Structure',
+      subtext: 'Doors, Bumpers, Hood', 
+      icon: 'car-door', 
+      count: parts.filter(p => p.category === 'Body & Exterior').length, 
+      color: '#4F46E5', 
+      bg: '#EEF2FF', 
+      border: '#C7D2FE',
+      accentColor: '#4338CA'
+    },
+    { 
+      id: 'Lights & Electricals', 
+      name: 'Lights & Electricals', 
+      tag: 'OEM Glow',
+      subtext: 'LEDs, Headlamps, Horns', 
+      icon: 'car-light-high', 
+      count: parts.filter(p => p.category === 'Lights & Electricals').length, 
+      color: '#EAB308', 
+      bg: '#FEFCE8', 
+      border: '#FEF08A',
+      accentColor: '#A16207'
+    },
+    { 
+      id: 'Suspension & Brakes', 
+      name: 'Suspension & Brakes', 
+      tag: 'Safety Pro',
+      subtext: 'Shocks, ABS, Calipers', 
+      icon: 'car-brake-alert', 
+      count: parts.filter(p => p.category === 'Suspension & Brakes').length, 
+      color: '#E11D48', 
+      bg: '#FFF1F2', 
+      border: '#FECDD3',
+      accentColor: '#BE123C'
+    },
+    { 
+      id: 'Interior & Wheels', 
+      name: 'Interior & Wheels', 
+      tag: 'Cabin',
+      subtext: 'Steering, Seats, Alloys', 
+      icon: 'steering', 
+      count: parts.filter(p => p.category === 'Interior & Wheels').length, 
+      color: '#059669', 
+      bg: '#ECFDF5', 
+      border: '#A7F3D0',
+      accentColor: '#047857'
+    },
+    { 
+      id: 'Wiring & Harnesses', 
+      name: 'Wiring & Harnesses', 
+      tag: 'Precision',
+      subtext: 'ECUs, Relays, Cables', 
+      icon: 'lightning-bolt', 
+      count: parts.filter(p => p.category === 'Wiring & Harnesses').length, 
+      color: '#0891B2', 
+      bg: '#ECFEFF', 
+      border: '#A5F3FC',
+      accentColor: '#0E7490'
+    },
   ];
 
   const displayBrands = taxonomyBrands.length > 0
@@ -514,61 +601,121 @@ export default function HomeScreen({ navigation, user }: any) {
 
         {/* Top Categories Visual Cards */}
         <View style={styles.sectionHeader}>
-          <Text variant="titleMedium" style={styles.sectionTitle}>Top Categories</Text>
-          {selectedCategory !== 'All' && (
-            <TouchableOpacity onPress={() => setSelectedCategory('All')}>
-              <Text style={{ fontSize: 12, color: '#1565FF', fontWeight: 'bold' }}>Show All</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text variant="titleMedium" style={styles.sectionTitle}>Top Categories</Text>
+            <View style={styles.categoryHeaderLiveDot} />
+          </View>
+          {selectedCategory !== 'All' ? (
+            <TouchableOpacity 
+              activeOpacity={0.7}
+              style={styles.resetCategoryPill}
+              onPress={() => setSelectedCategory('All')}
+            >
+              <IconButton icon="close-circle-outline" size={14} iconColor="#1565FF" style={{ margin: 0, padding: 0 }} />
+              <Text style={styles.resetCategoryText}>Clear ({selectedCategory.split(' ')[0]})</Text>
             </TouchableOpacity>
+          ) : (
+            <Text style={styles.categoryHeaderHint}>Swipe to explore</Text>
           )}
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryCardList}>
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={styles.categoryCardList}
+        >
           {displayCategories.map((cat) => {
             const isSelected = selectedCategory === cat.id;
             return (
               <TouchableOpacity
                 key={cat.id}
-                activeOpacity={0.8}
+                activeOpacity={0.75}
                 onPress={() => setSelectedCategory(isSelected ? 'All' : cat.id)}
                 style={[
                   styles.categoryCard,
-                  isSelected ? styles.categoryCardSelected : { backgroundColor: '#FFFFFF' }
+                  isSelected 
+                    ? styles.categoryCardSelected 
+                    : { backgroundColor: '#FFFFFF', borderColor: cat.border || '#E2E8F0' }
                 ]}
               >
-                <View 
-                  style={[
-                    styles.categoryIconWrap, 
-                    { backgroundColor: isSelected ? '#1565FF' : cat.bg }
-                  ]}
-                >
-                  <IconButton
-                    icon={cat.icon}
-                    iconColor={isSelected ? '#FFFFFF' : cat.color}
-                    size={22}
-                    style={{ margin: 0 }}
-                  />
-                </View>
-                <Text 
-                  numberOfLines={2} 
-                  style={[
-                    styles.categoryCardTitle,
-                    isSelected && styles.categoryCardTitleSelected
-                  ]}
-                >
-                  {cat.name}
-                </Text>
-                <View 
-                  style={[
-                    styles.categoryBadge,
-                    isSelected ? styles.categoryBadgeSelected : { backgroundColor: cat.bg }
-                  ]}
-                >
-                  <Text 
+                {/* Top Row: Icon Container + Sleek Tag */}
+                <View style={styles.categoryCardTopRow}>
+                  <View 
                     style={[
-                      styles.categoryBadgeText,
-                      isSelected ? { color: '#FFFFFF' } : { color: cat.color }
+                      styles.categoryIconWrap, 
+                      isSelected 
+                        ? styles.categoryIconWrapSelected 
+                        : { backgroundColor: cat.bg, borderColor: cat.border || '#DBEAFE' }
                     ]}
                   >
-                    {cat.count} {cat.count === 1 ? 'part' : 'parts'}
+                    <IconButton
+                      icon={cat.icon}
+                      iconColor={isSelected ? '#FFFFFF' : cat.color}
+                      size={22}
+                      style={{ margin: 0, padding: 0 }}
+                    />
+                  </View>
+                  
+                  <View 
+                    style={[
+                      styles.categoryTagPill,
+                      isSelected 
+                        ? { backgroundColor: 'rgba(37, 99, 235, 0.25)', borderColor: '#3B82F6' } 
+                        : { backgroundColor: cat.bg, borderColor: cat.border || '#E2E8F0' }
+                    ]}
+                  >
+                    <Text 
+                      style={[
+                        styles.categoryTagPillText,
+                        isSelected ? { color: '#60A5FA' } : { color: cat.accentColor || cat.color }
+                      ]}
+                    >
+                      {cat.tag || 'AUTO'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Middle Row: Title & Subtext */}
+                <View style={styles.categoryCardMiddle}>
+                  <Text 
+                    numberOfLines={1} 
+                    style={[
+                      styles.categoryCardTitle,
+                      isSelected && styles.categoryCardTitleSelected
+                    ]}
+                  >
+                    {cat.name}
+                  </Text>
+                  <Text 
+                    numberOfLines={1} 
+                    style={[
+                      styles.categoryCardSubtext,
+                      isSelected && styles.categoryCardSubtextSelected
+                    ]}
+                  >
+                    {cat.subtext || 'Genuine Auto Parts'}
+                  </Text>
+                </View>
+
+                {/* Bottom Row: Active / Count Badge */}
+                <View 
+                  style={[
+                    styles.categoryBottomPill,
+                    isSelected ? styles.categoryBottomPillSelected : { backgroundColor: cat.bg }
+                  ]}
+                >
+                  <View 
+                    style={[
+                      styles.categoryStatusDot, 
+                      isSelected ? { backgroundColor: '#38BDF8' } : { backgroundColor: cat.color }
+                    ]} 
+                  />
+                  <Text 
+                    style={[
+                      styles.categoryBottomPillText,
+                      isSelected ? { color: '#FFFFFF' } : { color: '#334155' }
+                    ]}
+                  >
+                    {isSelected ? 'Active Filter' : `${cat.count} ${cat.count === 1 ? 'part' : 'parts'}`}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -888,65 +1035,129 @@ const styles = StyleSheet.create({
   selectedBrandText: {
     color: '#FFFFFF',
   },
+  categoryHeaderLiveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+  },
+  categoryHeaderHint: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  resetCategoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+  },
+  resetCategoryText: {
+    fontSize: 11,
+    color: '#1565FF',
+    fontWeight: '700',
+  },
   categoryCardList: {
     paddingHorizontal: 16,
-    paddingVertical: 4,
+    paddingVertical: 6,
     gap: 12,
   },
   categoryCard: {
-    width: 115,
-    borderRadius: 14,
-    padding: 10,
-    alignItems: 'center',
+    width: 148,
+    minHeight: 142,
+    borderRadius: 18,
+    padding: 12,
     justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    minHeight: 125,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    borderWidth: 1.5,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
-    shadowRadius: 2,
+    shadowRadius: 10,
+    elevation: 3,
   },
   categoryCardSelected: {
-    backgroundColor: '#0F172A',
-    borderColor: '#1565FF',
+    backgroundColor: '#0B132B',
+    borderColor: '#2563EB',
     borderWidth: 2,
-    shadowOpacity: 0.2,
-    elevation: 4,
+    shadowColor: '#1D4ED8',
+    shadowOpacity: 0.28,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  categoryCardTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   categoryIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 13,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 6,
+    borderWidth: 1,
+  },
+  categoryIconWrapSelected: {
+    backgroundColor: 'rgba(37, 99, 235, 0.35)',
+    borderColor: '#3B82F6',
+  },
+  categoryTagPill: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  categoryTagPillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  categoryCardMiddle: {
+    marginBottom: 8,
   },
   categoryCardTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#1E293B',
-    textAlign: 'center',
-    lineHeight: 14,
-    height: 28,
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.2,
   },
   categoryCardTitleSelected: {
     color: '#FFFFFF',
-    fontWeight: '800',
   },
-  categoryBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+  categoryCardSubtext: {
+    fontSize: 10,
+    color: '#64748B',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  categoryCardSubtextSelected: {
+    color: '#93C5FD',
+  },
+  categoryBottomPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 10,
-    marginTop: 4,
+    alignSelf: 'flex-start',
+    gap: 5,
   },
-  categoryBadgeSelected: {
-    backgroundColor: '#1565FF',
+  categoryBottomPillSelected: {
+    backgroundColor: '#2563EB',
   },
-  categoryBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
+  categoryStatusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
+  categoryBottomPillText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   feedHeader: {
     flexDirection: 'row',
