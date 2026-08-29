@@ -2,10 +2,13 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
-apply from: file("../../node_modules/react-native-vector-icons/fonts.gradle")
+apply from: file("../../../../node_modules/react-native-vector-icons/fonts.gradle").exists() ? file("../../../../node_modules/react-native-vector-icons/fonts.gradle") : (file("../../node_modules/react-native-vector-icons/fonts.gradle").exists() ? file("../../node_modules/react-native-vector-icons/fonts.gradle") : file("../../../node_modules/react-native-vector-icons/fonts.gradle"))
 
 react {
-    /* Folders, entrypoint, etc. */
+    root = file("../../")
+    reactNativeDir = file("../../node_modules/react-native")
+    codegenDir = file("../../node_modules/@react-native/codegen")
+    cliFile = file("../../node_modules/react-native/cli.js")
     autolinkLibrariesWithApp()
     hermesEnabled = true
 }

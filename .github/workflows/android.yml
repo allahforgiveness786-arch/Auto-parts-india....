@@ -61,7 +61,6 @@ jobs:
           extensions.configure(com.facebook.react.ReactSettingsExtension){ it.autolinkLibrariesFromCommand() }
           rootProject.name = 'AutoPartsIndia'
           include ':app'
-          includeBuild("../node_modules/@react-native/gradle-plugin")
           EOF
           fi
 
@@ -74,23 +73,27 @@ jobs:
         run: |
           cd react-native-app
           find node_modules/@react-native-firebase -name CMakeLists.txt -exec sed -i 's/target_compile_reactnative_options(\(.*\) PRIVATE)/target_compile_options(\1 PRIVATE -fexceptions -frtti -std=c++20 -Wall)/g' {} + || true
-          # Hotfix Yoga 3 StyleSizeLength deprecation in react-native-svg
           find node_modules/react-native-svg -name "RNSVGLayoutableShadowNode.cpp" -exec sed -i 's/yoga::StyleSizeLength/yoga::StyleLength/g' {} + || true
-
 
       - name: Prepare Clean Asset Directories
         run: |
           cd react-native-app
           rm -rf android/app/src/main/assets/index.android.bundle || true
-          rm -rf android/app/src/main/assets/fonts || true
           mkdir -p android/app/src/main/assets
+          mkdir -p android/app/src/main/res
 
-      - name: Generate App Icons
+      - name: Pre-bundle React Native JS Assets
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
         run: |
-          if [ -f "generate-app-icons.js" ]; then
-            npm install sharp || true
-            node generate-app-icons.js || true
-          fi
+          cd react-native-app
+          npx react-native bundle \
+            --platform android \
+            --dev false \
+            --entry-file index.js \
+            --bundle-output android/app/src/main/assets/index.android.bundle \
+            --assets-dest android/app/src/main/res/ \
+            --reset-cache
 
       - name: Ensure Gradle Wrapper & Executable
         run: |
@@ -275,8 +278,8 @@ jobs:
           ./gradlew assembleRelease --parallel --build-cache \
           -Dorg.gradle.jvmargs="-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+UseParallelGC"
 
-      - name: Upload Release APK Artifact
+      - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: react-native-release-apk
-          path: react-native-app/android/app/build/outputs/apk/release/*.apk
+          name: auto-parts-india-apks
+          path: react-native-app/android/app/build/outputs/apk/**/*.apk
