@@ -87,7 +87,13 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=4096"
         run: |
           cd react-native-app
-          npx react-native bundle \
+          npx --yes @react-native-community/cli bundle \
+            --platform android \
+            --dev false \
+            --entry-file index.js \
+            --bundle-output android/app/src/main/assets/index.android.bundle \
+            --assets-dest android/app/src/main/res/ \
+            --reset-cache || ./node_modules/.bin/react-native bundle \
             --platform android \
             --dev false \
             --entry-file index.js \
