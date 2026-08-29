@@ -83,25 +83,6 @@ jobs:
           mkdir -p android/app/src/main/assets
           mkdir -p android/app/src/main/res
 
-      - name: Pre-bundle React Native JS Assets
-        env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
-        run: |
-          cd react-native-app
-          npx --yes @react-native-community/cli bundle \
-            --platform android \
-            --dev false \
-            --entry-file index.js \
-            --bundle-output android/app/src/main/assets/index.android.bundle \
-            --assets-dest android/app/src/main/res/ \
-            --reset-cache || ./node_modules/.bin/react-native bundle \
-            --platform android \
-            --dev false \
-            --entry-file index.js \
-            --bundle-output android/app/src/main/assets/index.android.bundle \
-            --assets-dest android/app/src/main/res/ \
-            --reset-cache
-
       - name: Ensure Gradle Wrapper & Executable
         run: |
           cd react-native-app/android
