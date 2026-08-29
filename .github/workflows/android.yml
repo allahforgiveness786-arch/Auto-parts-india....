@@ -278,13 +278,13 @@ jobs:
           CI: true
           REACT_NATIVE_MAX_WORKERS: 1
           CMAKE_BUILD_PARALLEL_LEVEL: 1
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs=\"-Xmx2560m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC\""
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs=\"-Xmx3072m -XX:MaxMetaspaceSize=768m -XX:+UseParallelGC\""
           ANDROID_NDK_HOME: /usr/local/lib/android/sdk/ndk/26.1.10909125
         run: |
           cd react-native-app/android
           chmod +x ./gradlew || true
           ./gradlew assembleRelease --no-daemon --stacktrace \
-            -Dorg.gradle.jvmargs="-Xmx2560m -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC"
+            -Dorg.gradle.jvmargs="-Xmx3072m -XX:MaxMetaspaceSize=768m -XX:+UseParallelGC"
 
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4

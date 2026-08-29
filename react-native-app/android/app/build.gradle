@@ -116,11 +116,6 @@ android {
         }
     }
 
-    aaptOptions {
-        cruncherEnabled = false
-        useNewCruncher = false
-    }
-
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
