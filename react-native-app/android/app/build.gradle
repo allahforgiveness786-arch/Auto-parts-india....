@@ -116,6 +116,14 @@ android {
         }
     }
 
+    androidResources {
+        noCompress 'tflite'
+    }
+
+    aaptOptions {
+        cruncherEnabled = false
+    }
+
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
