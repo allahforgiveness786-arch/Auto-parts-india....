@@ -1,15 +1,3 @@
-import * as RNScreens from 'react-native-screens';
-if (RNScreens) {
-  try {
-    if (!RNScreens.compatibilityFlags) {
-      (RNScreens as any).compatibilityFlags = {};
-    }
-    if (!RNScreens.ScreenStackItem && (RNScreens as any).Screen) {
-      (RNScreens as any).ScreenStackItem = (RNScreens as any).Screen;
-    }
-  } catch (_) {}
-}
-
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, StatusBar } from "react-native";
 import { SafeAreaProvider } from 'react-native-safe-area-context';

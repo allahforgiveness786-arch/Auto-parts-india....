@@ -2,7 +2,10 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
-apply from: file("../../../../node_modules/react-native-vector-icons/fonts.gradle").exists() ? file("../../../../node_modules/react-native-vector-icons/fonts.gradle") : (file("../../node_modules/react-native-vector-icons/fonts.gradle").exists() ? file("../../node_modules/react-native-vector-icons/fonts.gradle") : file("../../../node_modules/react-native-vector-icons/fonts.gradle"))
+def vectorIconsFonts = file("../../node_modules/react-native-vector-icons/fonts.gradle")
+if (vectorIconsFonts.exists()) {
+    apply from: vectorIconsFonts
+}
 
 react {
     root = file("../../")
